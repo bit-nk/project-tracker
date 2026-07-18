@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "check:data": "vite-node src/data/selfcheck.ts",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist -t"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.2",
