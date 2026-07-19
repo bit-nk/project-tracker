@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { env, corsOrigins } from "./env.js";
+import { pool } from "./db.js";
 import { registerErrorHandler, HttpError } from "./lib/http.js";
 import { verifyAccessToken } from "./auth/tokens.js";
 import { registerAuthRoutes } from "./routes/auth.js";
@@ -15,7 +16,11 @@ import { registerDashboardRoutes } from "./routes/dashboard.js";
 const app = Fastify({
   logger: { level: env.NODE_ENV === "production" ? "info" : "debug" },
   bodyLimit: 1_000_000, // 1 MB
-  trustProxy: true, // behind nginx — use X-Forwarded-For for req.ip / rate limiting
+  // Trust exactly ONE proxy hop (nginx). With `true`, proxy-addr would trust the
+  // whole X-Forwarded-For chain and let a client forge req.ip — bypassing the
+  // rate-limit key and poisoning session.ip. `1` resolves req.ip to the address
+  // nginx actually appended.
+  trustProxy: 1,
 });
 
 await app.register(helmet);
@@ -31,7 +36,12 @@ app.decorate("authenticate", async (req) => {
 
 registerErrorHandler(app);
 
-app.get("/health", async () => ({ ok: true }));
+// Health check exercises the DB so an unreachable database reads as unhealthy
+// (used by the container healthcheck to gate nginx startup).
+app.get("/health", async () => {
+  await pool.query("SELECT 1");
+  return { ok: true };
+});
 
 registerAuthRoutes(app);
 registerClientRoutes(app);
@@ -47,3 +57,17 @@ app
     app.log.error(err);
     process.exit(1);
   });
+
+// Graceful shutdown: docker sends SIGTERM on stop/redeploy. Drain in-flight
+// requests and close the pool instead of dropping them on SIGKILL.
+for (const sig of ["SIGTERM", "SIGINT"] as const) {
+  process.on(sig, async () => {
+    app.log.info(`${sig} received, shutting down`);
+    try {
+      await app.close();
+      await pool.end();
+    } finally {
+      process.exit(0);
+    }
+  });
+}

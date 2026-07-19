@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { pool, query, withUser } from "../db.js";
@@ -14,6 +15,10 @@ import type { AuthContext } from "../types.js";
 
 const MAX_FAILED_LOGINS = 10;
 const LOCK_MINUTES = 15;
+
+// Precomputed hash so login always runs exactly one argon2 verify, even for an
+// unknown email — equalizes response timing so latency can't reveal existence.
+const DUMMY_HASH = await hashPassword(randomBytes(16).toString("hex"));
 
 const signupBody = z.object({
   orgName: z.string().trim().min(1).max(120),
@@ -95,22 +100,32 @@ export function registerAuthRoutes(app: FastifyInstance) {
     );
 
     const user = found.rows[0];
-    // Uniform failure to avoid leaking which part was wrong.
     const invalid = new HttpError(401, "invalid_credentials");
+    // Always run a verify (real hash or the dummy) BEFORE the existence/status
+    // checks so response timing does not leak whether the email is registered.
+    const ok = await verifyPassword(user?.password_hash ?? DUMMY_HASH, password);
     if (!user || user.status !== "active") throw invalid;
     if (user.locked_until && user.locked_until > new Date()) throw new HttpError(423, "account_locked");
 
-    const ok = await verifyPassword(user.password_hash, password);
     if (!ok) {
-      const next = user.failed_login_count + 1;
-      const lock = next >= MAX_FAILED_LOGINS;
+      // Atomic (race-safe) increment done in SQL — concurrent wrong attempts
+      // can't each read the same stale count and collectively advance it by 1.
+      // An expired lock resets the window (count -> 1) so a legitimate user
+      // regains a full budget instead of being re-locked by a single typo.
       await query(
-        `UPDATE app_user
-         SET failed_login_count = $2,
-             locked_until = CASE WHEN $3 THEN now() + ($4 || ' minutes')::interval ELSE locked_until END,
-             updated_at = now()
+        `UPDATE app_user SET
+           failed_login_count = CASE
+             WHEN locked_until IS NOT NULL AND locked_until <= now() THEN 1
+             ELSE failed_login_count + 1 END,
+           locked_until = CASE
+             WHEN (CASE WHEN locked_until IS NOT NULL AND locked_until <= now() THEN 1
+                        ELSE failed_login_count + 1 END) >= $2
+               THEN now() + ($3 || ' minutes')::interval
+             WHEN locked_until IS NOT NULL AND locked_until <= now() THEN NULL
+             ELSE locked_until END,
+           updated_at = now()
          WHERE id = $1`,
-        [user.id, next, lock, String(LOCK_MINUTES)]
+        [user.id, MAX_FAILED_LOGINS, String(LOCK_MINUTES)]
       );
       throw invalid;
     }
@@ -141,7 +156,24 @@ export function registerAuthRoutes(app: FastifyInstance) {
       );
       const session = s.rows[0];
       if (!session) {
-        await c.query("ROLLBACK");
+        // Reuse detection: a token that was already rotated away and is replayed
+        // >30s later is a theft signal — revoke the whole session family. The 30s
+        // grace avoids nuking a benign double-submit (two tabs refreshing the
+        // same token near-simultaneously).
+        const reused = await c.query<{ user_id: string }>(
+          `SELECT user_id FROM session
+           WHERE refresh_token_hash = $1 AND rotated_to IS NOT NULL
+             AND revoked_at < now() - interval '30 seconds'`,
+          [hash]
+        );
+        if (reused.rows.length > 0) {
+          await c.query("UPDATE session SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [
+            reused.rows[0].user_id,
+          ]);
+          await c.query("COMMIT");
+        } else {
+          await c.query("ROLLBACK");
+        }
         throw new HttpError(401, "invalid_refresh_token");
       }
 

@@ -4,6 +4,7 @@ import { withTenant } from "../db.js";
 import { HttpError } from "../lib/http.js";
 import { audit } from "../lib/audit.js";
 import { STATUS, WORK, transition, type SowState } from "../lib/sow-state.js";
+import { likeEscape } from "../lib/sql.js";
 
 const uuid = z.string().uuid();
 const httpUrl = z.string().trim().regex(/^https?:\/\//, "must start with http:// or https://").max(2000);
@@ -29,7 +30,7 @@ export function registerSowRoutes(app: FastifyInstance) {
 
   app.get("/sows", auth, async (req) => {
     const q = req.query as { search?: string; status?: string };
-    const search = q.search?.trim() ?? "";
+    const search = likeEscape(q.search?.trim() ?? "");
     const status = STATUS.includes(q.status as (typeof STATUS)[number]) ? q.status : null;
     return withTenant(req.auth.orgId, req.auth.userId, async (c) => {
       const r = await c.query(

@@ -2,7 +2,17 @@ import { Pool, type PoolClient } from "pg";
 import { env } from "./env.js";
 
 // The app connects as the restricted, RLS-enforced role.
-export const pool = new Pool({ connectionString: env.DATABASE_URL });
+export const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  statement_timeout: 15_000, // abort any single query wedged past 15s
+  idleTimeoutMillis: 30_000,
+});
+
+// A pooled client can lose its backend connection while idle (db restart, TCP
+// reset, OOM). node-postgres emits 'error' on the pool; with no listener Node
+// treats it as an unhandled 'error' event and exits the process. The pool has
+// already discarded the broken client, so logging is all that is needed.
+pool.on("error", (err) => console.error("idle pg client error:", err.message));
 
 // Direct query — for auth tables that are not under RLS (org, app_user, session).
 export const query = pool.query.bind(pool);

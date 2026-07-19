@@ -25,8 +25,11 @@ export function registerLogRoutes(app: FastifyInstance) {
   app.get("/sows/:id/logs", auth, async (req) => {
     const sowId = uuid.parse((req.params as { id: string }).id);
     return withTenant(req.auth.orgId, req.auth.userId, async (c) => {
+      // ponytail: bound the payload so a long-lived journal can't return an
+      // unbounded result set. Ceiling: 1000 most-recent entries; upgrade path is
+      // keyset pagination if a project ever needs more than that in one view.
       const r = await c.query(
-        "SELECT * FROM project_log_entry WHERE sow_id = $1 ORDER BY created_at DESC, id",
+        "SELECT * FROM project_log_entry WHERE sow_id = $1 ORDER BY created_at DESC, id LIMIT 1000",
         [sowId]
       );
       return r.rows;

@@ -9,7 +9,7 @@
 set -euo pipefail
 
 : "${DOMAIN:?set DOMAIN (e.g. app.example.com)}"
-: "${EMAIL:?set EMAIL (for Let's Encrypt)}"
+: "${EMAIL:?set EMAIL (for the TLS certificate)}"
 : "${SSH_CIDR:?set SSH_CIDR (your IP, e.g. 1.2.3.4/32) — run: curl -s https://checkip.amazonaws.com}"
 
 AWS_REGION="${AWS_REGION:-us-east-1}"

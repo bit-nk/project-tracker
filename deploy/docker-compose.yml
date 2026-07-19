@@ -1,9 +1,18 @@
 # Runs the whole app on one box: Postgres + Fastify API + nginx.
 # Run from the deploy/ directory:  docker compose --env-file .env up -d --build
+
+# Cap container logs so a chatty process can't fill the 40 GB disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${ADMIN_DB_PASSWORD}
@@ -20,10 +29,24 @@ services:
   api:
     build: ../backend
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     depends_on:
       db:
         condition: service_healthy
+    # node:22-slim has no curl/wget — probe /health with Node's built-in fetch.
+    # start_period covers the migrate-then-listen window so early probes don't
+    # count as failures.
+    healthcheck:
+      test:
+        - "CMD"
+        - "node"
+        - "-e"
+        - "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 5
+      start_period: 60s
     # No published ports — nginx proxies to it over the compose network.
     expose:
       - "8080"
@@ -31,8 +54,14 @@ services:
   web:
     image: nginx:alpine
     restart: unless-stopped
+    logging: *logging
     depends_on:
-      - api
+      # Wait for the API to be healthy (not just started) so nginx doesn't serve
+      # 502s during the migrate/boot window. restart: true re-creates web when api
+      # is replaced, refreshing nginx's cached upstream IP after a redeploy.
+      api:
+        condition: service_healthy
+        restart: true
     ports:
       - "80:80"
       - "443:443"

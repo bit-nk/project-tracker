@@ -3,6 +3,7 @@ import { z } from "zod";
 import { withTenant } from "../db.js";
 import { HttpError } from "../lib/http.js";
 import { audit } from "../lib/audit.js";
+import { likeEscape } from "../lib/sql.js";
 
 const uuid = z.string().uuid();
 const clientCreate = z.object({
@@ -22,7 +23,7 @@ export function registerClientRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
 
   app.get("/clients", auth, async (req) => {
-    const search = (req.query as { search?: string }).search?.trim() ?? "";
+    const search = likeEscape((req.query as { search?: string }).search?.trim() ?? "");
     return withTenant(req.auth.orgId, req.auth.userId, async (c) => {
       const r = await c.query(
         `SELECT c.*, count(cc.id)::int AS contact_count

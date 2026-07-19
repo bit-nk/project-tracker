@@ -16,12 +16,14 @@ interface AccessClaims {
 
 export function signAccessToken(auth: AuthContext): string {
   const claims: AccessClaims = { sub: auth.userId, org: auth.orgId, role: auth.role };
-  return jwt.sign(claims, env.JWT_SECRET, { expiresIn: ACCESS_TTL_SECONDS });
+  return jwt.sign(claims, env.JWT_SECRET, { expiresIn: ACCESS_TTL_SECONDS, algorithm: "HS256" });
 }
 
 export function verifyAccessToken(token: string): AuthContext {
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET) as AccessClaims;
+    // Pin the algorithm so a token forged with alg:none or an asymmetric-key
+    // confusion trick is rejected.
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] }) as AccessClaims;
     return { userId: decoded.sub, orgId: decoded.org, role: decoded.role };
   } catch {
     throw new HttpError(401, "invalid_token");
