@@ -22,16 +22,12 @@
       })(window.location);
     </script>
     <script>
-      // Apply the saved/OS theme before first paint to avoid a flash of the
+      // Apply the saved theme before first paint to avoid a flash of the
       // wrong theme (FOUC). Must match the key used in src/hooks/use-theme.ts.
+      // Defaults to light unless the user explicitly chose dark.
       (function () {
         try {
-          var t = localStorage.getItem("helm-theme");
-          if (t !== "light" && t !== "dark") {
-            t = window.matchMedia("(prefers-color-scheme: dark)").matches
-              ? "dark"
-              : "light";
-          }
+          var t = localStorage.getItem("helm-theme") === "dark" ? "dark" : "light";
           var el = document.documentElement;
           el.classList.toggle("dark", t === "dark");
           el.style.colorScheme = t;

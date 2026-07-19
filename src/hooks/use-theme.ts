@@ -1,8 +1,9 @@
 /**
  * Light/dark theme, persisted to localStorage and applied as a `.dark` class on
- * <html> (Tailwind's `darkMode: "class"`). Backed by a small module store so
- * every `useTheme()` consumer (e.g. multiple sidebar instances) stays in sync.
- * The pre-paint script in index.html applies the initial class to avoid a flash.
+ * <html> (Tailwind's `darkMode: "class"`). Defaults to light; dark is opt-in.
+ * Backed by a small module store so every `useTheme()` consumer (e.g. multiple
+ * sidebar instances) stays in sync. The pre-paint script in index.html applies
+ * the initial class to avoid a flash.
  */
 import { useSyncExternalStore } from "react";
 
@@ -11,9 +12,8 @@ const STORAGE_KEY = "helm-theme";
 
 function getInitial(): Theme {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // Default to light; dark only when the user explicitly chose it.
+  return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
 }
 
 let current: Theme = getInitial();
