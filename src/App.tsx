@@ -7,9 +7,13 @@ import { ProjectDetail } from "@/pages/ProjectDetail";
 import { Clients } from "@/pages/Clients";
 import { ClientDetail } from "@/pages/ClientDetail";
 
+// React Router needs the basename WITHOUT a trailing slash (BASE_URL has one),
+// otherwise nested paths under the subpath fail to match.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
+
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <BrowserRouter basename={basename}>
       <Routes>
         <Route element={<AppShell />}>
           <Route index element={<Dashboard />} />
