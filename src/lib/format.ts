@@ -1,26 +1,5 @@
 /** Formatting helpers used across pages. Pure, no side effects. */
 
-/** "$12,500" - whole-dollar currency, no cents. Returns "-" for undefined. */
-export function formatCurrency(value?: number): string {
-  if (value == null) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-/** "$1.2k" / "$12.5k" / "$1.2M" - compact currency for stat tiles. */
-export function formatCurrencyCompact(value?: number): string {
-  if (value == null) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
 /** "Mar 14, 2026" */
 export function formatDate(iso?: string): string {
   if (!iso) return "-";
@@ -61,10 +40,4 @@ export function formatRelative(iso?: string): string {
     if (abs >= ms) return rtf.format(Math.round(diffMs / ms), unit);
   }
   return "just now";
-}
-
-/** Percentage from a ratio, rounded. `formatPercent(0.6667)` -> "67%". */
-export function formatPercent(ratio: number): string {
-  if (!isFinite(ratio)) return "-";
-  return `${Math.round(ratio * 100)}%`;
 }

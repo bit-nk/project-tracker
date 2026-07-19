@@ -30,6 +30,7 @@ import { SortSelect } from "@/components/common/SortSelect";
 import { sowComparator, updateSow, useClients, useSows } from "@/hooks/use-repo";
 import type { SortOption } from "@/hooks/use-repo";
 import { formatDate } from "@/lib/format";
+import { safeHref } from "@/lib/url";
 import { SOW_STATUSES, type Client, type Sow, type SowStatus } from "@/types";
 
 export function Sows() {
@@ -240,9 +241,9 @@ function SowRow({ sow }: { sow: Sow }) {
                 <Pencil className="h-3.5 w-3.5" />
                 Edit
               </Button>
-              {sow.docLink && (
+              {safeHref(sow.docLink) && (
                 <Button asChild variant="ghost" size="sm">
-                  <a href={sow.docLink} target="_blank" rel="noreferrer">
+                  <a href={safeHref(sow.docLink)} target="_blank" rel="noreferrer">
                     <ExternalLink className="h-3.5 w-3.5" />
                     SoW document
                   </a>

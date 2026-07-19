@@ -19,6 +19,7 @@ import { SortSelect } from "@/components/common/SortSelect";
 import { sortSows, useClients, usePinnedEntries, useProjects } from "@/hooks/use-repo";
 import type { SortOption } from "@/hooks/use-repo";
 import { formatDate } from "@/lib/format";
+import { safeHref } from "@/lib/url";
 import { WORK_STATUSES, type Sow, type WorkStatus } from "@/types";
 
 export function Projects() {
@@ -173,9 +174,11 @@ function ProjectRow({ project, clientName }: { project: Sow; clientName: string 
 }
 
 function RepoLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const safe = safeHref(href);
+  if (!safe) return null; // never render a link for an unsafe/unparseable URL
   return (
     <a
-      href={href}
+      href={safe}
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}

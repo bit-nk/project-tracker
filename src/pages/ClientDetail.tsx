@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SowFormDialog } from "@/components/forms/SowFormDialog";
 import { updateClient, useClientHistory } from "@/hooks/use-repo";
 import { formatDate } from "@/lib/format";
+import { safeHref } from "@/lib/url";
 import type { Client } from "@/types";
 
 export function ClientDetail() {
@@ -77,9 +78,9 @@ export function ClientDetail() {
                 <span className="min-w-0 flex-1 truncate text-sm font-normal">{sow.title}</span>
                 <SowStatusBadge status={sow.status} />
                 <span className="text-xs text-muted-foreground">{formatDate(sow.createdAt)}</span>
-                {sow.docLink && (
+                {safeHref(sow.docLink) && (
                   <a
-                    href={sow.docLink}
+                    href={safeHref(sow.docLink)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"

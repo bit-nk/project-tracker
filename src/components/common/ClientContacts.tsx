@@ -3,6 +3,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { updateClient, useClient } from "@/hooks/use-repo";
+import { safeMailto } from "@/lib/url";
 import type { ClientContact } from "@/types";
 
 /**
@@ -94,8 +95,8 @@ function ContactRow({
       <span className="text-sm font-medium">{contact.name}</span>
       {contact.role && <span className="text-sm text-muted-foreground">{contact.role}</span>}
       {contact.contact &&
-        (contact.contact.includes("@") ? (
-          <a href={`mailto:${contact.contact}`} className="text-sm text-primary hover:underline">
+        (safeMailto(contact.contact) ? (
+          <a href={safeMailto(contact.contact)} className="text-sm text-primary hover:underline">
             {contact.contact}
           </a>
         ) : (

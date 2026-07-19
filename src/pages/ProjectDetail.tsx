@@ -34,6 +34,7 @@ import {
   useSearchLogEntries,
 } from "@/hooks/use-repo";
 import { formatDate, formatDateTime, formatRelative } from "@/lib/format";
+import { safeHref } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import { LOG_ENTRY_TYPES, type LogEntryType, type ProjectLogEntry } from "@/types";
 
@@ -377,9 +378,11 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function MetaLink({ href, children }: { href: string; children: ReactNode }) {
+  const safe = safeHref(href);
+  if (!safe) return null; // never render a link for an unsafe/unparseable URL
   return (
     <a
-      href={href}
+      href={safe}
       target="_blank"
       rel="noreferrer"
       className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"

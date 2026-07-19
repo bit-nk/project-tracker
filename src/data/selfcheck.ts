@@ -5,6 +5,7 @@
  * lands and this in-memory logic goes away.
  */
 import { mulberry32 } from "@/lib/rng";
+import { safeHref, safeMailto } from "@/lib/url";
 import {
   addLogEntry,
   createSow,
@@ -157,6 +158,22 @@ function assert(cond: boolean, msg: string) {
     !getReminders().some((r) => r.entry.id === rem.id),
     "resolved reminder drops off the reminders list"
   );
+}
+
+// 10) URL safety helpers (XSS guard for user-entered links).
+{
+  assert(safeHref("https://example.com/doc") === "https://example.com/doc", "https passes");
+  assert(safeHref("http://example.com") === "http://example.com/", "http passes");
+  assert(safeHref("example.com/doc") === "https://example.com/doc", "bare host upgraded to https");
+  // eslint-disable-next-line no-script-url
+  assert(safeHref("javascript:alert(1)") === undefined, "javascript: scheme rejected");
+  assert(safeHref("data:text/html,<script>x</script>") === undefined, "data: scheme rejected");
+  assert(safeHref("vbscript:x") === undefined, "vbscript: scheme rejected");
+  assert(safeHref(" JAVASCRIPT:alert(1)") === undefined, "case/whitespace tricks rejected");
+  assert(safeHref("") === undefined && safeHref(undefined) === undefined, "empty rejected");
+  assert(safeMailto("a@b.co") === "mailto:a@b.co", "plain email passes");
+  assert(safeMailto("a@b.co?cc=evil@x.com") === undefined, "mailto header injection rejected");
+  assert(safeMailto("not-an-email") === undefined, "non-email rejected");
 }
 
 resetDemo(); // leave the store clean
