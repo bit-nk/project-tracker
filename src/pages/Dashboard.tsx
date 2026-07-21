@@ -303,7 +303,7 @@ function HomeCard({
       }}
       className="cursor-pointer transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <CardContent className="flex flex-col gap-2 p-4">
+      <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs text-muted-foreground">{client}</div>
@@ -321,7 +321,8 @@ function HomeCard({
             {action.label}
           </button>
         </div>
-        {children}
+        {/* Divider, not a nested card: the body sits on the card surface. */}
+        <div className="mt-3 border-t border-border pt-3">{children}</div>
       </CardContent>
     </Card>
   );
@@ -336,12 +337,10 @@ function FocusCard({ item }: { item: FocusItem }) {
       projectTitle={project.title}
       action={{ label: "Remove", icon: PinOff, onClick: () => togglePinned(entry.id) }}
     >
-      <div className="rounded-lg bg-muted/60 p-3">
-        <div className="mb-1.5">
-          <LogTypeBadge type={entry.type} />
-        </div>
-        <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
+      <div className="mb-1.5">
+        <LogTypeBadge type={entry.type} />
       </div>
+      <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
     </HomeCard>
   );
 }
@@ -355,16 +354,14 @@ function ReminderCard({ item }: { item: ReminderItem }) {
       projectTitle={project.title}
       action={{ label: "Resolve", icon: Check, onClick: () => toggleResolved(entry.id) }}
     >
-      <div className="rounded-lg bg-sky-500/5 p-3">
-        <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400">
-          <AlarmClock className="h-3.5 w-3.5" />
-          Reminder
-          <span className="font-normal text-muted-foreground">
-            · {formatRelative(entry.createdAt)}
-          </span>
-        </div>
-        <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+        <AlarmClock className="h-3.5 w-3.5" />
+        Reminder
+        <span className="font-normal text-muted-foreground">
+          · {formatRelative(entry.createdAt)}
+        </span>
       </div>
+      <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
     </HomeCard>
   );
 }
