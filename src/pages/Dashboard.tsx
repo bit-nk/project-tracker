@@ -70,7 +70,7 @@ export function Dashboard() {
       {/* Reminders */}
       <section>
         <div className="mb-3 flex items-center gap-2">
-          <AlarmClock className="h-4 w-4 text-sky-500" />
+          <AlarmClock className="h-4 w-4 text-info" />
           <h2 className="text-lg font-semibold tracking-tight">Reminders</h2>
           <span className="text-sm text-muted-foreground">{reminders.length}</span>
           <Button
@@ -179,9 +179,9 @@ function ProjectsByStatus({
   completed: number;
 }) {
   const rows = [
-    { label: "Active", n: active, dot: "bg-sky-500" },
-    { label: "On Hold", n: onHold, dot: "bg-amber-500" },
-    { label: "Completed", n: completed, dot: "bg-emerald-500" },
+    { label: "Active", n: active, dot: "bg-primary" },
+    { label: "On Hold", n: onHold, dot: "bg-warning" },
+    { label: "Completed", n: completed, dot: "bg-success" },
   ];
   return (
     <Card className="p-4 sm:col-span-2">
@@ -234,8 +234,9 @@ function AddLogItemForm({
     <Card className="mb-4 p-4">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] sm:items-end">
         <div className="space-y-1.5">
-          <Label>Project</Label>
+          <Label htmlFor="dash-project">Project</Label>
           <Combobox
+            id="dash-project"
             value={projectId}
             onChange={setProjectId}
             options={options}
@@ -315,7 +316,7 @@ function HomeCard({
               e.stopPropagation();
               action.onClick();
             }}
-            className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ActionIcon className="h-3.5 w-3.5" />
             {action.label}
@@ -354,7 +355,7 @@ function ReminderCard({ item }: { item: ReminderItem }) {
       projectTitle={project.title}
       action={{ label: "Resolve", icon: Check, onClick: () => toggleResolved(entry.id) }}
     >
-      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400">
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-info">
         <AlarmClock className="h-3.5 w-3.5" />
         Reminder
         <span className="font-normal text-muted-foreground">

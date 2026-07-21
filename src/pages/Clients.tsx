@@ -157,7 +157,7 @@ function ClientRow({
           go();
         }
       }}
-      className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-muted"
+      className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{client.name}</div>

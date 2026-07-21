@@ -84,8 +84,9 @@ export function NewProjectDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Client</Label>
+            <Label htmlFor="np-client">Client</Label>
             <Combobox
+              id="np-client"
               value={clientId}
               onChange={setClientId}
               options={clientOptions}
@@ -109,9 +110,9 @@ export function NewProjectDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Work status</Label>
+            <Label htmlFor="np-work">Work status</Label>
             <Select value={workStatus} onValueChange={(v) => setWorkStatus(v as WorkStatus)}>
-              <SelectTrigger className="sm:w-56">
+              <SelectTrigger id="np-work" className="sm:w-56">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

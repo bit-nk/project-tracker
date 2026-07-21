@@ -142,7 +142,7 @@ function ProjectRow({ project, clientName }: { project: Sow; clientName: string 
           navigate(path);
         }
       }}
-      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="text-xs text-muted-foreground">{clientName}</div>

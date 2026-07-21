@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -12,7 +12,11 @@ export function AppShell() {
       <div className="md:pl-64">
         <Topbar onOpenMenu={() => setMenuOpen(true)} />
         <main className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-8">
-          <Outlet />
+          {/* Suspense inside the shell: the sidebar/topbar stay put while a
+              lazily-loaded route chunk resolves. */}
+          <Suspense fallback={null}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

@@ -85,8 +85,9 @@ export function SowFormDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Client</Label>
+            <Label htmlFor="sow-client">Client</Label>
             <Combobox
+              id="sow-client"
               value={clientId}
               onChange={setClientId}
               options={clientOptions}
@@ -110,9 +111,9 @@ export function SowFormDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Status</Label>
+            <Label htmlFor="sow-status">Status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as SowStatus)}>
-              <SelectTrigger className="sm:w-56">
+              <SelectTrigger id="sow-status" className="sm:w-56">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

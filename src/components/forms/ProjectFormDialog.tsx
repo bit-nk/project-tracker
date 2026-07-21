@@ -82,9 +82,9 @@ export function ProjectFormDialog({
 
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <Label>Work status</Label>
+            <Label htmlFor="proj-work">Work status</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as WorkStatus)}>
-              <SelectTrigger className="sm:w-56">
+              <SelectTrigger id="proj-work" className="sm:w-56">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
