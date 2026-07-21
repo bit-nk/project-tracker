@@ -261,7 +261,7 @@ function AddLogItemForm({
           <Button size="sm" onClick={add} disabled={!canAdd}>
             Add
           </Button>
-          <Button size="sm" variant="ghost" onClick={onClose}>
+          <Button size="sm" variant="outline" onClick={onClose}>
             Cancel
           </Button>
         </div>

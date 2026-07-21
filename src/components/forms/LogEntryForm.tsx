@@ -93,7 +93,7 @@ export function LogEntryForm({
         <Button size="sm" onClick={submit} disabled={!canSave}>
           {entry ? "Save" : "Add entry"}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onDone}>
+        <Button size="sm" variant="outline" onClick={onDone}>
           Cancel
         </Button>
       </div>

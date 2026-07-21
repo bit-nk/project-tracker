@@ -158,7 +158,7 @@ function ClientHeaderEditor({ client }: { client: Client }) {
           <Button size="sm" onClick={save} disabled={!name.trim()}>
             Save
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+          <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
             Cancel
           </Button>
         </div>
@@ -228,7 +228,7 @@ function NotesSection({ client }: { client: Client }) {
             <Button size="sm" onClick={save}>
               Save
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
               Cancel
             </Button>
           </div>

@@ -350,7 +350,7 @@ function SowEditForm({ sow, onDone }: { sow: Sow; onDone: () => void }) {
         <Button size="sm" onClick={save} disabled={!canSave}>
           Save
         </Button>
-        <Button size="sm" variant="ghost" onClick={onDone}>
+        <Button size="sm" variant="outline" onClick={onDone}>
           Cancel
         </Button>
       </div>

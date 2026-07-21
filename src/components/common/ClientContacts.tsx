@@ -177,7 +177,7 @@ function ContactFields({
         <Button size="sm" onClick={save} disabled={!canSave}>
           {submitLabel}
         </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>
+        <Button size="sm" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
       </div>

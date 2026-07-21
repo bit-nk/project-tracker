@@ -139,7 +139,7 @@ function ClientRow({
         <Button size="sm" onClick={save} disabled={!name.trim()}>
           Save
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+        <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
           Cancel
         </Button>
       </div>
