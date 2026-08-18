@@ -3,6 +3,7 @@ import {
   FileText,
   FolderKanban,
   LayoutDashboard,
+  LogOut,
   Moon,
   Sun,
   Users,
@@ -11,6 +12,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/use-theme";
+import { logout } from "@/data/auth";
+import { clearCache } from "@/data/repo";
 
 interface NavItem {
   to: string;
@@ -94,8 +97,12 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
 function SidebarFooter() {
   const { theme, toggleTheme } = useTheme();
   const Icon = theme === "dark" ? Sun : Moon;
+  async function handleLogout() {
+    await logout();
+    clearCache();
+  }
   return (
-    <div className="flex items-center justify-between gap-2 px-3 pb-4 pt-2">
+    <div className="flex items-center justify-between gap-1 px-3 pb-4 pt-2">
       <button
         type="button"
         onClick={toggleTheme}
@@ -105,7 +112,14 @@ function SidebarFooter() {
         <Icon className="h-[18px] w-[18px]" />
         {theme === "dark" ? "Light mode" : "Dark mode"}
       </button>
-      <span className="px-1 text-[11px] text-muted-foreground">v0.1</span>
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+      >
+        <LogOut className="h-[18px] w-[18px]" />
+        Log out
+      </button>
     </div>
   );
 }

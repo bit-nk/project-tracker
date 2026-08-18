@@ -1,19 +1,15 @@
 /**
- * Data-access seam.
+ * Data-access seam — backed by the Helm API.
  *
- * The ONLY module that knows how data is stored. Today it keeps the seeded
- * dataset in memory and mutates it synchronously; a tiny pub/sub lets the React
- * hooks in `src/hooks/` re-render on change. When the real backend lands, this
- * file becomes `fetch()` calls - the signatures (and every hook/component) stay.
+ * A write-through in-memory cache: components read synchronously (through the
+ * hooks + useSyncExternalStore), `hydrate()` fills the cache from the API on
+ * login, and each mutation calls the API then updates the cache and emits.
  *
- * Model: a **Project is an Approved SoW**. There is no separate Project entity.
- * `listProjects()` is "the Approved SoWs"; log entries are keyed by SoW id.
- *
- * Rules of the seam:
- *  - Components never import this module directly; they go through hooks.
- *  - Read functions return fresh arrays/objects (never internal references).
- *  - Writes mutate the store, then `emit()` so subscribers refresh.
+ * Model: a Project is an Approved SoW. There is no separate Project entity.
+ * The backend owns the state machine, so this file no longer stamps timestamps
+ * or generates ids — it maps API rows (snake_case) to the domain types.
  */
+import { api } from "./api";
 import type {
   Client,
   ClientContact,
@@ -29,34 +25,13 @@ import type {
 // ---------------------------------------------------------------------------
 // Store + reactivity
 // ---------------------------------------------------------------------------
-
-/** In-memory store shape. Starts empty; filled only through the write API. */
 interface Store {
   clients: Client[];
   sows: Sow[];
   logEntries: ProjectLogEntry[];
 }
 const emptyStore = (): Store => ({ clients: [], sows: [], logEntries: [] });
-
 let db: Store = emptyStore();
-
-// Monotonic id counters. Seeded from the max existing id and only ever
-// increase, so deleting a row never lets its id be recycled (which could
-// otherwise silently re-link unrelated records).
-type Prefix = "c" | "s" | "l";
-function seedCounters(d: Store): Record<Prefix, number> {
-  const maxNum = (items: { id: ID }[], p: Prefix) =>
-    items.reduce((m, it) => {
-      const n = Number(it.id.slice(p.length));
-      return !Number.isNaN(n) && n > m ? n : m;
-    }, 0);
-  return { c: maxNum(d.clients, "c"), s: maxNum(d.sows, "s"), l: maxNum(d.logEntries, "l") };
-}
-let counters = seedCounters(db);
-function nextId(prefix: Prefix): ID {
-  counters[prefix] += 1;
-  return `${prefix}${counters[prefix]}`;
-}
 
 const listeners = new Set<() => void>();
 let version = 0;
@@ -64,18 +39,97 @@ function emit() {
   version += 1;
   for (const l of listeners) l();
 }
-
-/** Subscribe to any data change. Returns an unsubscribe fn. */
 export function subscribe(cb: () => void): () => void {
   listeners.add(cb);
   return () => listeners.delete(cb);
 }
-/** Monotonic snapshot used by `useSyncExternalStore`. */
 export function getVersion(): number {
   return version;
 }
 
-const now = () => new Date().toISOString();
+// ---------------------------------------------------------------------------
+// Mappers (API row -> domain type) + cache upserts
+// ---------------------------------------------------------------------------
+const opt = (v: unknown): string | undefined => (v ? String(v) : undefined);
+
+function mapClient(r: any): Client {
+  return { id: r.id, name: r.name, industry: opt(r.industry), notes: opt(r.notes), contacts: [], createdAt: r.created_at };
+}
+function mapContact(r: any): ClientContact {
+  return { name: r.name, contact: opt(r.contact), role: opt(r.role) };
+}
+function mapSow(r: any): Sow {
+  return {
+    id: r.id,
+    clientId: r.client_id,
+    title: r.title,
+    docLink: opt(r.doc_link),
+    status: r.status,
+    decisionNote: opt(r.decision_note),
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    sentAt: r.sent_at ?? undefined,
+    decidedAt: r.decided_at ?? undefined,
+    workStatus: r.work_status ?? undefined,
+    description: opt(r.description),
+    repoUrl: opt(r.repo_url),
+    stagingUrl: opt(r.staging_url),
+    links: r.links ?? [],
+    startedAt: r.started_at ?? undefined,
+    completedAt: r.completed_at ?? undefined,
+  };
+}
+function mapLog(r: any): ProjectLogEntry {
+  return {
+    id: r.id,
+    sowId: r.sow_id,
+    type: r.type,
+    body: r.body,
+    createdAt: r.created_at,
+    pinned: r.pinned,
+    resolved: r.resolved ?? undefined,
+  };
+}
+function upsertSow(row: any): Sow {
+  const s = mapSow(row);
+  const i = db.sows.findIndex((x) => x.id === s.id);
+  if (i >= 0) db.sows[i] = s;
+  else db.sows.push(s);
+  return s;
+}
+function upsertLog(row: any): ProjectLogEntry {
+  const e = mapLog(row);
+  const i = db.logEntries.findIndex((x) => x.id === e.id);
+  if (i >= 0) db.logEntries[i] = e;
+  else db.logEntries.push(e);
+  return e;
+}
+
+// ---------------------------------------------------------------------------
+// Hydration / teardown
+// ---------------------------------------------------------------------------
+/** Load the whole org dataset into the cache (called once after login). */
+export async function hydrate(): Promise<void> {
+  const [clients, contacts, sows, logs] = await Promise.all([
+    api.get("/clients"),
+    api.get("/contacts"),
+    api.get("/sows"),
+    api.get("/logs"),
+  ]);
+  const byId = new Map<ID, Client>();
+  for (const row of clients) byId.set(row.id, mapClient(row));
+  for (const row of contacts) {
+    const client = byId.get(row.client_id);
+    if (client) (client.contacts ??= []).push(mapContact(row));
+  }
+  db = { clients: [...byId.values()], sows: sows.map(mapSow), logEntries: logs.map(mapLog) };
+  emit();
+}
+/** Drop everything (called on logout). */
+export function clearCache(): void {
+  db = emptyStore();
+  emit();
+}
 
 // ---------------------------------------------------------------------------
 // Clients
@@ -94,49 +148,72 @@ export interface ClientInput {
   notes?: string;
 }
 
-function cleanContacts(contacts?: ClientContact[]): ClientContact[] | undefined {
-  const cleaned = contacts
-    ?.filter((c) => c.name.trim())
+function cleanContacts(contacts?: ClientContact[]): ClientContact[] {
+  return (contacts ?? [])
+    .filter((c) => c.name.trim())
     .map((c) => ({
       name: c.name.trim(),
       contact: c.contact?.trim() || undefined,
       role: c.role?.trim() || undefined,
     }));
-  return cleaned && cleaned.length ? cleaned : undefined;
 }
 
-export function createClient(input: ClientInput): Client {
-  const client: Client = {
-    id: nextId("c"),
+export async function createClient(input: ClientInput): Promise<Client> {
+  const row = await api.post("/clients", {
     name: input.name.trim(),
     industry: input.industry?.trim() || undefined,
-    contacts: cleanContacts(input.contacts),
     notes: input.notes?.trim() || undefined,
-    createdAt: now(),
-  };
+  });
+  const client = mapClient(row);
+  client.contacts = [];
+  for (const ct of cleanContacts(input.contacts)) {
+    client.contacts.push(mapContact(await api.post(`/clients/${client.id}/contacts`, ct)));
+  }
   db.clients.push(client);
   emit();
   return client;
 }
 
-export function updateClient(id: ID, patch: Partial<ClientInput>): Client {
+export async function updateClient(id: ID, patch: Partial<ClientInput>): Promise<Client> {
   const client = db.clients.find((c) => c.id === id);
   if (!client) throw new Error(`Client ${id} not found`);
-  if (patch.name !== undefined) client.name = patch.name.trim();
-  if (patch.industry !== undefined) client.industry = patch.industry.trim() || undefined;
-  if (patch.contacts !== undefined) client.contacts = cleanContacts(patch.contacts);
-  if (patch.notes !== undefined) client.notes = patch.notes.trim() || undefined;
+
+  if (patch.name !== undefined || patch.industry !== undefined || patch.notes !== undefined) {
+    const row = await api.patch(`/clients/${id}`, {
+      name: patch.name?.trim(),
+      industry: patch.industry !== undefined ? patch.industry.trim() : undefined,
+      notes: patch.notes !== undefined ? patch.notes.trim() : undefined,
+    });
+    client.name = row.name;
+    client.industry = opt(row.industry);
+    client.notes = opt(row.notes);
+  }
+
+  // ponytail: contact edits replace the whole set (fetch ids -> delete -> recreate).
+  // Ceiling: not atomic and re-mints contact ids; fine for a low-contact app.
+  if (patch.contacts !== undefined) {
+    const detail = await api.get(`/clients/${id}`);
+    for (const existing of detail.contacts ?? []) await api.del(`/contacts/${existing.id}`);
+    const fresh: ClientContact[] = [];
+    for (const ct of cleanContacts(patch.contacts)) {
+      fresh.push(mapContact(await api.post(`/clients/${id}/contacts`, ct)));
+    }
+    client.contacts = fresh;
+  }
   emit();
   return client;
 }
 
-/** Quick-add a single contact without opening the full edit form. */
-export function addClientContact(id: ID, contact: ClientContact): Client {
+export async function addClientContact(id: ID, contact: ClientContact): Promise<Client> {
   const client = db.clients.find((c) => c.id === id);
   if (!client) throw new Error(`Client ${id} not found`);
   if (!contact.name.trim()) return client;
-  const next = [...(client.contacts ?? []), contact];
-  client.contacts = cleanContacts(next);
+  const row = await api.post(`/clients/${id}/contacts`, {
+    name: contact.name.trim(),
+    contact: contact.contact?.trim() || undefined,
+    role: contact.role?.trim() || undefined,
+  });
+  (client.contacts ??= []).push(mapContact(row));
   emit();
   return client;
 }
@@ -168,7 +245,6 @@ export function sowComparator(sort: SortOption): (a: Sow, b: Sow) => number {
       return (a, b) => b.title.localeCompare(a.title);
   }
 }
-
 export function sortSows(items: Sow[], sort: SortOption): Sow[] {
   return [...items].sort(sowComparator(sort));
 }
@@ -196,81 +272,62 @@ export interface SowInput {
   description?: string;
 }
 
-export function createSow(input: SowInput): Sow {
+export async function createSow(input: SowInput): Promise<Sow> {
   const status = input.status ?? "Draft";
-  const created = now();
-  const sow: Sow = {
-    id: nextId("s"),
-    clientId: input.clientId,
-    title: input.title.trim(),
-    docLink: input.docLink?.trim() || undefined,
-    status,
-    decisionNote: input.decisionNote?.trim() || undefined,
-    description: input.description?.trim() || undefined,
-    createdAt: created,
-    updatedAt: created,
-    sentAt: status !== "Draft" ? created : undefined,
-    decidedAt: status === "Approved" || status === "Rejected" ? created : undefined,
-  };
-  if (status === "Approved") becomeProject(sow);
-  db.sows.push(sow);
+  let row: any;
+  if (status === "Approved") {
+    // Direct project create: the backend only approves via the status endpoint,
+    // so create as Draft -> approve -> (optionally) set the description.
+    const draft = await api.post("/sows", {
+      clientId: input.clientId,
+      title: input.title.trim(),
+      docLink: input.docLink?.trim() || undefined,
+    });
+    row = await api.post(`/sows/${draft.id}/status`, { status: "Approved", workStatus: "Active" });
+    if (input.description?.trim()) {
+      row = await api.patch(`/projects/${draft.id}`, { description: input.description.trim() });
+    }
+  } else {
+    row = await api.post("/sows", {
+      clientId: input.clientId,
+      title: input.title.trim(),
+      status,
+      docLink: input.docLink?.trim() || undefined,
+    });
+  }
+  const sow = upsertSow(row);
   emit();
   return sow;
 }
 
-/** Give an Approved SoW its project fields (idempotent). */
-function becomeProject(sow: Sow) {
-  sow.workStatus = sow.workStatus ?? "Active";
-  sow.startedAt = sow.startedAt ?? now();
-}
+export async function updateSow(id: ID, patch: Partial<SowInput>): Promise<Sow> {
+  const current = db.sows.find((s) => s.id === id);
+  if (!current) throw new Error(`SoW ${id} not found`);
+  let row: any;
 
-/**
- * Update SoW-core fields. Status transitions auto-stamp timestamps and, on
- * approval, promote the SoW to a project.
- */
-export function updateSow(id: ID, patch: Partial<SowInput>): Sow {
-  const sow = db.sows.find((s) => s.id === id);
-  if (!sow) throw new Error(`SoW ${id} not found`);
-
-  if (patch.clientId !== undefined) sow.clientId = patch.clientId;
-  if (patch.title !== undefined) sow.title = patch.title.trim();
-  if (patch.docLink !== undefined) sow.docLink = patch.docLink.trim() || undefined;
-  if (patch.decisionNote !== undefined)
-    sow.decisionNote = patch.decisionNote.trim() || undefined;
-
-  if (patch.status !== undefined && patch.status !== sow.status) {
-    applyStatusTransition(sow, patch.status);
+  // Core fields (title, docLink, decisionNote) via PATCH.
+  if (patch.title !== undefined || patch.docLink !== undefined || patch.decisionNote !== undefined) {
+    row = await api.patch(`/sows/${id}`, {
+      title: patch.title?.trim(),
+      docLink: patch.docLink !== undefined ? patch.docLink.trim() || null : undefined,
+      decisionNote: patch.decisionNote !== undefined ? patch.decisionNote.trim() || null : undefined,
+    });
   }
-  sow.updatedAt = now();
+  // Status transition via the status endpoint (owns the state machine).
+  if (patch.status !== undefined && patch.status !== current.status) {
+    row = await api.post(`/sows/${id}/status`, {
+      status: patch.status,
+      decisionNote: patch.decisionNote?.trim() || undefined,
+    });
+  }
+  if (!row) row = await api.get(`/sows/${id}`);
+  const sow = upsertSow(row);
   emit();
   return sow;
 }
 
-function applyStatusTransition(sow: Sow, status: SowStatus) {
-  sow.status = status;
-  const ts = now();
-  switch (status) {
-    case "Draft":
-      sow.sentAt = undefined;
-      sow.decidedAt = undefined;
-      break;
-    case "Sent":
-      sow.sentAt = sow.sentAt ?? ts;
-      sow.decidedAt = undefined;
-      break;
-    case "Rejected":
-      sow.sentAt = sow.sentAt ?? ts;
-      sow.decidedAt = ts;
-      break;
-    case "Approved":
-      sow.sentAt = sow.sentAt ?? ts;
-      sow.decidedAt = ts;
-      becomeProject(sow);
-      break;
-  }
-}
-
-export function deleteSow(id: ID): void {
+export async function deleteSow(id: ID): Promise<void> {
+  await api.del(`/sows/${id}`);
   db.sows = db.sows.filter((s) => s.id !== id);
   db.logEntries = db.logEntries.filter((e) => e.sowId !== id); // cascade
   emit();
@@ -290,8 +347,6 @@ export function listProjects(filter?: { workStatus?: WorkStatus; clientId?: ID }
       (b.startedAt ?? b.createdAt).localeCompare(a.startedAt ?? a.createdAt)
   );
 }
-
-/** A project is an Approved SoW; anything else isn't a project. */
 export function getProject(id: ID): Sow | undefined {
   const sow = db.sows.find((s) => s.id === id);
   return sow && sow.status === "Approved" ? sow : undefined;
@@ -305,29 +360,20 @@ export interface ProjectInput {
   links?: ProjectLink[];
 }
 
-/** Update the project (work) fields on an Approved SoW. */
-export function updateProject(id: ID, patch: ProjectInput): Sow {
-  const sow = db.sows.find((s) => s.id === id);
-  if (!sow) throw new Error(`Project ${id} not found`);
-  if (patch.description !== undefined) sow.description = patch.description.trim() || undefined;
-  if (patch.repoUrl !== undefined) sow.repoUrl = patch.repoUrl.trim() || undefined;
-  if (patch.stagingUrl !== undefined) sow.stagingUrl = patch.stagingUrl.trim() || undefined;
-  if (patch.links !== undefined)
-    sow.links = patch.links.filter((l) => l.label.trim() && l.url.trim());
-  if (patch.workStatus !== undefined && patch.workStatus !== sow.workStatus) {
-    sow.workStatus = patch.workStatus;
-    sow.completedAt =
-      patch.workStatus === "Completed" ? sow.completedAt ?? now() : undefined;
-  }
-  sow.updatedAt = now();
+export async function updateProject(id: ID, patch: ProjectInput): Promise<Sow> {
+  const row = await api.patch(`/projects/${id}`, {
+    workStatus: patch.workStatus,
+    description: patch.description !== undefined ? patch.description.trim() || null : undefined,
+    repoUrl: patch.repoUrl !== undefined ? patch.repoUrl.trim() || null : undefined,
+    stagingUrl: patch.stagingUrl !== undefined ? patch.stagingUrl.trim() || null : undefined,
+    links:
+      patch.links !== undefined
+        ? patch.links.filter((l) => l.label.trim() && l.url.trim())
+        : undefined,
+  });
+  const sow = upsertSow(row);
   emit();
   return sow;
-}
-
-/** Bump a SoW/project's "last edited" time (called on log activity). */
-function touchSow(sowId: ID) {
-  const sow = db.sows.find((s) => s.id === sowId);
-  if (sow) sow.updatedAt = now();
 }
 
 // ---------------------------------------------------------------------------
@@ -338,12 +384,9 @@ export function listLogEntries(sowId: ID): ProjectLogEntry[] {
     .filter((e) => e.sowId === sowId)
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
-
 export function getPinnedEntries(sowId: ID): ProjectLogEntry[] {
   return listLogEntries(sowId).filter((e) => e.pinned);
 }
-
-/** Plain case-insensitive substring search within one project's log. */
 export function searchLogEntries(sowId: ID, query: string): ProjectLogEntry[] {
   const q = query.trim().toLowerCase();
   const rows = listLogEntries(sowId);
@@ -357,60 +400,53 @@ export interface LogEntryInput {
   pinned?: boolean;
 }
 
-export function addLogEntry(sowId: ID, input: LogEntryInput): ProjectLogEntry {
-  const entry: ProjectLogEntry = {
-    id: nextId("l"),
-    sowId,
+export async function addLogEntry(sowId: ID, input: LogEntryInput): Promise<ProjectLogEntry> {
+  const row = await api.post(`/sows/${sowId}/logs`, {
     type: input.type,
     body: input.body,
-    createdAt: now(),
     pinned: input.pinned ?? false,
-  };
-  db.logEntries.push(entry);
-  touchSow(sowId);
+  });
+  const entry = upsertLog(row);
   emit();
   return entry;
 }
 
-export function updateLogEntry(
+export async function updateLogEntry(
   id: ID,
   patch: Partial<Pick<ProjectLogEntry, "type" | "body" | "pinned">>
-): ProjectLogEntry {
-  const entry = db.logEntries.find((e) => e.id === id);
-  if (!entry) throw new Error(`Log entry ${id} not found`);
-  if (patch.type !== undefined) entry.type = patch.type;
-  if (patch.body !== undefined) entry.body = patch.body;
-  if (patch.pinned !== undefined) entry.pinned = patch.pinned;
-  touchSow(entry.sowId);
+): Promise<ProjectLogEntry> {
+  const row = await api.patch(`/logs/${id}`, {
+    type: patch.type,
+    body: patch.body,
+    pinned: patch.pinned,
+  });
+  const entry = upsertLog(row);
   emit();
   return entry;
 }
 
-export function deleteLogEntry(id: ID): void {
-  const entry = db.logEntries.find((e) => e.id === id);
+export async function deleteLogEntry(id: ID): Promise<void> {
+  await api.del(`/logs/${id}`);
   db.logEntries = db.logEntries.filter((e) => e.id !== id);
-  if (entry) touchSow(entry.sowId);
   emit();
 }
 
-/** Toggle an entry's pin. Multiple pins per project are allowed. */
-export function togglePinned(id: ID): void {
+export async function togglePinned(id: ID): Promise<void> {
   const entry = db.logEntries.find((e) => e.id === id);
   if (!entry) return;
-  entry.pinned = !entry.pinned;
+  upsertLog(await api.patch(`/logs/${id}`, { pinned: !entry.pinned }));
   emit();
 }
 
-/** Toggle a reminder's resolved state (resolved reminders leave the dashboard). */
-export function toggleResolved(id: ID): void {
+export async function toggleResolved(id: ID): Promise<void> {
   const entry = db.logEntries.find((e) => e.id === id);
   if (!entry) return;
-  entry.resolved = !entry.resolved;
+  upsertLog(await api.patch(`/logs/${id}`, { resolved: !entry.resolved }));
   emit();
 }
 
 // ---------------------------------------------------------------------------
-// Derived views
+// Derived views (computed from the cache)
 // ---------------------------------------------------------------------------
 export interface DashboardStats {
   sow: {
@@ -463,51 +499,34 @@ export function getStats(): DashboardStats {
   };
 }
 
-/**
- * Pinned "current focus" entries for the dashboard, one item per pinned entry.
- * Reminders are excluded (they have their own dashboard section) as are
- * completed projects.
- */
 export interface FocusItem {
   entry: ProjectLogEntry;
   project: Sow;
   client: Client | undefined;
 }
-
 export function getFocusItems(): FocusItem[] {
   const out: FocusItem[] = [];
   for (const e of db.logEntries) {
     if (!e.pinned || e.type === "Reminder") continue;
     const project = db.sows.find((s) => s.id === e.sowId);
-    if (!project || project.status !== "Approved" || project.workStatus === "Completed")
-      continue;
+    if (!project || project.status !== "Approved" || project.workStatus === "Completed") continue;
     out.push({ entry: e, project, client: getClient(project.clientId) });
   }
   return out.sort((a, b) => b.entry.createdAt.localeCompare(a.entry.createdAt));
 }
 
-/** All "Reminder" log entries across projects, newest first, with context. */
 export interface ReminderItem {
   entry: ProjectLogEntry;
   project: Sow;
   client: Client | undefined;
 }
-
 export function getReminders(): ReminderItem[] {
   const out: ReminderItem[] = [];
   for (const e of db.logEntries) {
     if (e.type !== "Reminder" || e.resolved) continue;
     const project = db.sows.find((s) => s.id === e.sowId);
-    // Skip reminders on completed projects - they're no longer actionable.
     if (!project || project.workStatus === "Completed") continue;
     out.push({ entry: e, project, client: getClient(project.clientId) });
   }
   return out.sort((a, b) => b.entry.createdAt.localeCompare(a.entry.createdAt));
-}
-
-/** Reset the in-memory store to empty. Used by the data self-check. */
-export function resetStore(): void {
-  db = emptyStore();
-  counters = seedCounters(db);
-  emit();
 }

@@ -18,6 +18,7 @@ const sowCreate = z.object({
 const sowPatch = z.object({
   title: z.string().trim().min(1).max(300).optional(),
   docLink: httpUrl.nullable().optional(),
+  decisionNote: z.string().max(10000).nullable().optional(),
 });
 const statusBody = z.object({
   status: z.enum(STATUS),
@@ -81,9 +82,10 @@ export function registerSowRoutes(app: FastifyInstance) {
         `UPDATE sow SET
            title = COALESCE($2, title),
            doc_link = CASE WHEN $3::boolean THEN $4 ELSE doc_link END,
+           decision_note = CASE WHEN $5::boolean THEN $6 ELSE decision_note END,
            updated_at = now()
          WHERE id = $1 RETURNING *`,
-        [id, body.title ?? null, body.docLink !== undefined, body.docLink ?? null]
+        [id, body.title ?? null, body.docLink !== undefined, body.docLink ?? null, body.decisionNote !== undefined, body.decisionNote ?? null]
       );
       if (r.rows.length === 0) throw new HttpError(404, "not_found");
       await audit(c, req.auth, "sow.update", "sow", id);

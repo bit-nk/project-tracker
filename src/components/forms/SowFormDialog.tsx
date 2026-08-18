@@ -59,7 +59,7 @@ export function SowFormDialog({
   const canSave = clientId && title.trim().length > 0;
   const showDecisionNote = status === "Approved" || status === "Rejected";
 
-  function submit() {
+  async function submit() {
     if (!canSave) return;
     const payload = {
       clientId,
@@ -68,7 +68,7 @@ export function SowFormDialog({
       status,
       decisionNote: showDecisionNote ? decisionNote : "",
     };
-    const result = sow ? updateSow(sow.id, payload) : createSow(payload);
+    const result = sow ? await updateSow(sow.id, payload) : await createSow(payload);
     onOpenChange(false);
     onSaved?.(result);
   }

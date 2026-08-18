@@ -9,7 +9,7 @@ they become, and a per-project dev journal.
 - `npm run dev` — Vite dev server (localhost:5173)
 - `npm run build` — typecheck (`tsc -p tsconfig.app.json`) + production build
 - `npm run typecheck` — types only
-- `npm run check:data` — seed/repo self-check (46 assertions)
+- `npm run check:data` — url-safety self-check (the XSS guard for user-entered links)
 - `npm run deploy` — publish `dist/` to GitHub Pages
 
 **Backend** (`backend/`):
@@ -26,9 +26,10 @@ work is tracked in [BACKEND_TODO.md](BACKEND_TODO.md).
   with `status = 'Approved'`; project-only fields (`work_status`, `repo_url`, `links`…) live on
   that same row. Frontend: `src/types.ts`, `src/data/repo.ts` (`listProjects`/`getProject`).
 - **No money/estimatedValue anywhere** — deliberately removed from the model.
-- **Frontend data seam**: all state flows through `src/data/repo.ts` (in-memory store + pub/sub via
-  `useSyncExternalStore`), consumed through `src/hooks/use-repo.ts`. It is **not yet wired to the
-  API** — that's the main remaining task (BACKEND_TODO R8).
+- **Frontend data seam**: all state flows through `src/data/repo.ts` — a **write-through cache
+  backed by the API** (`src/data/api.ts` + `src/data/auth.ts`). It hydrates from the API on login;
+  each mutation calls the API then updates the cache; components read synchronously via
+  `use-repo.ts`. Auth is JWT (login/signup in `src/pages/Login.tsx`, gate in `src/App.tsx`).
 - **Backend multi-tenancy = Postgres RLS.** The app connects as non-superuser `helm_app`; every
   org-scoped request runs inside `withTenant()` which sets `app.current_org_id` per transaction.
   RLS policies must wrap the setting in `NULLIF(current_setting(...), '')::uuid` — a bare

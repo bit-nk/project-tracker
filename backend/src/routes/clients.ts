@@ -22,6 +22,14 @@ const contactPatch = contactCreate.partial();
 export function registerClientRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
 
+  // Bulk read of all org contacts — lets the frontend hydrate its cache in one call.
+  app.get("/contacts", auth, async (req) => {
+    return withTenant(req.auth.orgId, req.auth.userId, async (c) => {
+      const r = await c.query("SELECT * FROM client_contact ORDER BY created_at");
+      return r.rows;
+    });
+  });
+
   app.get("/clients", auth, async (req) => {
     const search = likeEscape((req.query as { search?: string }).search?.trim() ?? "");
     return withTenant(req.auth.orgId, req.auth.userId, async (c) => {

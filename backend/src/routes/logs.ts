@@ -22,6 +22,17 @@ const logPatch = z.object({
 export function registerLogRoutes(app: FastifyInstance) {
   const auth = { preHandler: [app.authenticate] };
 
+  // Bulk read of all org log entries — lets the frontend hydrate its cache (for
+  // dashboard reminders/focus computed client-side) in one call.
+  app.get("/logs", auth, async (req) => {
+    return withTenant(req.auth.orgId, req.auth.userId, async (c) => {
+      const r = await c.query(
+        "SELECT * FROM project_log_entry ORDER BY created_at DESC, id LIMIT 5000"
+      );
+      return r.rows;
+    });
+  });
+
   app.get("/sows/:id/logs", auth, async (req) => {
     const sowId = uuid.parse((req.params as { id: string }).id);
     return withTenant(req.auth.orgId, req.auth.userId, async (c) => {

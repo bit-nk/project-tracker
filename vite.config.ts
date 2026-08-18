@@ -44,4 +44,15 @@ export default defineConfig(({ command }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  // Dev only: forward /api to the local backend, stripping the prefix exactly as
+  // nginx does in production (/api/auth/login -> :8080/auth/login).
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, ""),
+      },
+    },
+  },
 }));

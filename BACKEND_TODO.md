@@ -80,12 +80,11 @@ no committed **blocking** test. Add one: seed two orgs and assert (1) cross-org 
 rows, (2) cross-org `INSERT`/`UPDATE` is rejected by `WITH CHECK`, (3) unset context returns 0 rows
 and rejects writes, (4) a composite-FK insert cannot attach a child to another org's parent.
 
-### R8. Frontend → API wiring — `core`, M
-The deployed frontend still reads its **in-memory demo data** (`src/data/repo.ts`). Swap that data
-seam to `fetch()` the live `/api/*` endpoints, add token storage + silent refresh, and build the two
-screens the API needs that the UI lacks: a **signup form** (email / password / orgName →
-`POST /auth/signup`) and a **login screen**. This is the step that makes the deployed UI actually
-persist.
+### R8. Frontend → API wiring — DONE
+`src/data/repo.ts` is now a write-through cache backed by the API (`api.ts` + `auth.ts`): hydrates on
+login, mutations persist to Postgres, components read synchronously. JWT auth with a login/signup
+screen (`Login.tsx`) gated in `App.tsx`. Verified end-to-end. (Bulk hydration endpoints `GET /contacts`
+and `GET /logs` were added to the backend.)
 
 ### R9. Not yet scoped (deferred)
 - **Transactional email** — verification/reset emails (R3) need a provider; the token table is ready,

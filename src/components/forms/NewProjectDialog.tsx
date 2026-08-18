@@ -60,10 +60,10 @@ export function NewProjectDialog({
 
   const canSave = clientId && title.trim().length > 0;
 
-  function submit() {
+  async function submit() {
     if (!canSave) return;
-    const project = createSow({ clientId, title, status: "Approved", description });
-    if (workStatus !== "Active") updateProject(project.id, { workStatus });
+    const project = await createSow({ clientId, title, status: "Approved", description });
+    if (workStatus !== "Active") await updateProject(project.id, { workStatus });
     onOpenChange(false);
     onCreated?.(project);
   }
