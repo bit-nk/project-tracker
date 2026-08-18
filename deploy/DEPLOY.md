@@ -2,8 +2,7 @@
 
 Everything runs on **one** Lightsail instance: nginx + the Fastify API + PostgreSQL,
 in Docker. TLS is **self-signed** (no domain — reach it by IP) or **Let's Encrypt**
-(if you give it a domain). Backups are Lightsail automatic snapshots plus a nightly
-`pg_dump`.
+(if you give it a domain). No backups are configured — the instance is the only cost.
 
 ```
 Browser ──HTTPS──▶ nginx ──/──▶ static frontend
