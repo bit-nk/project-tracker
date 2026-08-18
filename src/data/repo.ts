@@ -14,7 +14,6 @@
  *  - Read functions return fresh arrays/objects (never internal references).
  *  - Writes mutate the store, then `emit()` so subscribers refresh.
  */
-import { buildSeed, type SeedData } from "./seed";
 import type {
   Client,
   ClientContact,
@@ -30,13 +29,22 @@ import type {
 // ---------------------------------------------------------------------------
 // Store + reactivity
 // ---------------------------------------------------------------------------
-let db: SeedData = buildSeed();
+
+/** In-memory store shape. Starts empty; filled only through the write API. */
+interface Store {
+  clients: Client[];
+  sows: Sow[];
+  logEntries: ProjectLogEntry[];
+}
+const emptyStore = (): Store => ({ clients: [], sows: [], logEntries: [] });
+
+let db: Store = emptyStore();
 
 // Monotonic id counters. Seeded from the max existing id and only ever
 // increase, so deleting a row never lets its id be recycled (which could
 // otherwise silently re-link unrelated records).
 type Prefix = "c" | "s" | "l";
-function seedCounters(d: SeedData): Record<Prefix, number> {
+function seedCounters(d: Store): Record<Prefix, number> {
   const maxNum = (items: { id: ID }[], p: Prefix) =>
     items.reduce((m, it) => {
       const n = Number(it.id.slice(p.length));
@@ -497,9 +505,9 @@ export function getReminders(): ReminderItem[] {
   return out.sort((a, b) => b.entry.createdAt.localeCompare(a.entry.createdAt));
 }
 
-/** Reset the in-memory store to a fresh seed (dev/demo convenience). */
-export function resetDemo(): void {
-  db = buildSeed();
+/** Reset the in-memory store to empty. Used by the data self-check. */
+export function resetStore(): void {
+  db = emptyStore();
   counters = seedCounters(db);
   emit();
 }

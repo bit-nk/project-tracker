@@ -1,9 +1,9 @@
 /**
  * Shared entity types - the single source of truth for the whole app.
  *
- * Produced today by the seeded stub layer (`src/data/seed.ts`) and served
- * through the data-access seam (`src/data/repo.ts`). When the real Postgres
- * backend lands, only the repo changes; these shapes stay put.
+ * Held in the in-memory store and served through the data-access seam
+ * (`src/data/repo.ts`), which starts empty. When the real Postgres backend
+ * lands, only the repo changes; these shapes stay put.
  *
  * NOTE on the model: a **Project is not a separate entity** - it *is* a SoW that
  * has been Approved (won). Once a SoW is Approved it gains the "work" fields

@@ -1,13 +1,15 @@
 /**
  * Runnable self-check for the data layer (the non-trivial logic in this repo).
  * No test framework - plain asserts. Run with: `npm run check:data`.
- * Exits non-zero if any invariant breaks. Delete/replace when the real backend
- * lands and this in-memory logic goes away.
+ * Exits non-zero if any invariant breaks. The store ships empty; this check
+ * builds its own data through the public API. Delete/replace when the real
+ * backend lands and this in-memory logic goes away.
  */
 import { mulberry32 } from "@/lib/rng";
 import { safeHref, safeMailto } from "@/lib/url";
 import {
   addLogEntry,
+  createClient,
   createSow,
   deleteSow,
   getFocusItems,
@@ -15,11 +17,9 @@ import {
   getReminders,
   getSow,
   getStats,
-  listClients,
   listLogEntries,
   listProjects,
-  listSows,
-  resetDemo,
+  resetStore,
   togglePinned,
   toggleResolved,
   updateProject,
@@ -43,110 +43,107 @@ function assert(cond: boolean, msg: string) {
   assert(mulberry32(123)() !== mulberry32(124)(), "mulberry32: different seeds should diverge");
 }
 
-// 2) Stats math matches a manual recompute; projects === Approved SoWs.
+// 2) Empty store baseline (the shipped starting state).
+resetStore();
 {
-  const sows = listSows();
-  const approved = sows.filter((s) => s.status === "Approved");
-  const rejected = sows.filter((s) => s.status === "Rejected").length;
-  const sent = sows.filter((s) => s.status === "Sent");
   const st = getStats();
-  assert(st.sow.total === sows.length, "stats.total must equal SoW count");
-  assert(st.sow.approved === approved.length, "stats.approved mismatch");
-  assert(st.sow.decided === approved.length + rejected, "stats.decided mismatch");
-  assert(
-    Math.abs(st.sow.conversionRate - approved.length / (approved.length + rejected)) < 1e-9,
-    "stats.conversionRate mismatch"
-  );
-  assert(st.sow.awaitingDecision === sent.length, "stats.awaitingDecision mismatch");
-  assert(st.project.total === approved.length, "project total must equal Approved count");
-  assert(
-    st.project.active + st.project.onHold + st.project.completed === st.project.total,
-    "project status counts must sum to total"
-  );
-  assert(
-    listProjects().every((p) => p.status === "Approved"),
-    "listProjects must return only Approved SoWs"
-  );
-  assert(getReminders().length === 5, "seed has exactly 5 reminders");
-  assert(getFocusItems().length === 6, "seed has exactly 6 focus items");
-  assert(listSows().every((s) => !!s.updatedAt), "every SoW has an updatedAt");
+  assert(st.sow.total === 0 && st.project.total === 0, "empty store has zero SoWs/projects");
+  assert(st.sow.conversionRate === 0, "empty store conversionRate is 0 (no divide-by-zero)");
+  assert(getReminders().length === 0 && getFocusItems().length === 0, "empty store has no reminders/focus");
 }
 
-// 3) Multiple pins are allowed and independent.
+// 3) Stats math on a known dataset; projects === Approved SoWs.
+resetStore();
 {
-  const proj = listProjects().find((p) => listLogEntries(p.id).length >= 3);
-  assert(!!proj, "need a project with >=3 log entries for pin test");
-  if (proj) {
-    const entries = listLogEntries(proj.id);
-    const before = entries.filter((e) => e.pinned).length;
-    const unpinned = entries.filter((e) => !e.pinned).slice(0, 2);
-    unpinned.forEach((e) => togglePinned(e.id));
-    const after = listLogEntries(proj.id).filter((e) => e.pinned).length;
-    assert(after === before + unpinned.length, "togglePinned must allow multiple pins");
-    unpinned.forEach((e) => togglePinned(e.id)); // restore
-    assert(
-      listLogEntries(proj.id).filter((e) => e.pinned).length === before,
-      "togglePinned must toggle back off"
-    );
-  }
+  const clientId = createClient({ name: "Check Co" }).id;
+  createSow({ clientId, title: "D1" }); // Draft
+  createSow({ clientId, title: "D2" }); // Draft
+  createSow({ clientId, title: "S1", status: "Sent" });
+  createSow({ clientId, title: "R1", status: "Rejected" });
+  createSow({ clientId, title: "A1", status: "Approved" }); // Active (default)
+  const a2 = createSow({ clientId, title: "A2", status: "Approved" });
+  const a3 = createSow({ clientId, title: "A3", status: "Approved" });
+  updateProject(a2.id, { workStatus: "On Hold" });
+  updateProject(a3.id, { workStatus: "Completed" });
+
+  const st = getStats();
+  assert(st.sow.total === 7, "stats.total counts every SoW");
+  assert(st.sow.approved === 3, "stats.approved counts Approved");
+  assert(st.sow.rejected === 1, "stats.rejected counts Rejected");
+  assert(st.sow.decided === 4, "stats.decided = approved + rejected");
+  assert(Math.abs(st.sow.conversionRate - 0.75) < 1e-9, "conversionRate = approved / decided");
+  assert(st.sow.awaitingDecision === 1, "awaitingDecision = Sent count");
+  assert(st.project.total === 3, "project total = Approved count");
+  assert(
+    st.project.active === 1 && st.project.onHold === 1 && st.project.completed === 1,
+    "project work-status split is correct"
+  );
+  assert(
+    listProjects().length === 3 && listProjects().every((p) => p.status === "Approved"),
+    "listProjects returns exactly the Approved SoWs"
+  );
+  assert(listProjects({ clientId }).length === 3, "projects filter by client");
 }
 
-// 4) Status transitions + auto-promotion to project on Approve.
+// 4) Status transitions + auto-promotion to project; completedAt stamp/clear.
+resetStore();
 {
-  resetDemo();
-  const clientId = listClients()[0].id;
-  const s = createSow({ clientId, title: "Self-check SoW", status: "Draft" });
+  const clientId = createClient({ name: "Lifecycle Co" }).id;
+  const s = createSow({ clientId, title: "SoW", status: "Draft" });
   assert(!s.sentAt && !s.decidedAt, "Draft SoW has no sent/decided timestamps");
   assert(getProject(s.id) === undefined, "a Draft SoW is not a project");
   updateSow(s.id, { status: "Sent" });
   assert(!!getSow(s.id)!.sentAt && !getSow(s.id)!.decidedAt, "Sent stamps sentAt only");
   updateSow(s.id, { status: "Approved" });
-  const approvedSow = getSow(s.id)!;
-  assert(!!approvedSow.decidedAt && !!approvedSow.sentAt, "Approved stamps both timestamps");
-  assert(approvedSow.workStatus === "Active", "Approve promotes to project (workStatus Active)");
-  assert(!!approvedSow.startedAt, "Approve sets startedAt");
+  const ap = getSow(s.id)!;
+  assert(!!ap.sentAt && !!ap.decidedAt, "Approved stamps both timestamps");
+  assert(ap.workStatus === "Active" && !!ap.startedAt, "Approve promotes to project (Active, startedAt)");
   assert(getProject(s.id)?.id === s.id, "getProject returns the approved SoW");
-  assert(
-    listProjects({ clientId }).some((p) => p.id === s.id),
-    "approved SoW appears under its client's projects"
-  );
   updateSow(s.id, { status: "Draft" });
-  assert(
-    !getSow(s.id)!.sentAt && !getSow(s.id)!.decidedAt,
-    "back to Draft clears sent/decided timestamps"
-  );
-
-  // 5) Completing a project stamps completedAt; reopening clears it.
+  assert(!getSow(s.id)!.sentAt && !getSow(s.id)!.decidedAt, "back to Draft clears sent/decided");
   updateSow(s.id, { status: "Approved" });
   updateProject(s.id, { workStatus: "Completed" });
   assert(!!getSow(s.id)!.completedAt, "Completed stamps completedAt");
   updateProject(s.id, { workStatus: "Active" });
   assert(!getSow(s.id)!.completedAt, "reopening clears completedAt");
-
-  // 7) Log entries keyed by SoW id; deleteSow cascades.
-  addLogEntry(s.id, { type: "Note", body: "a" });
-  addLogEntry(s.id, { type: "Working On", body: "b", pinned: true });
-  assert(listLogEntries(s.id).length === 2, "log entries key off the SoW id");
-  deleteSow(s.id);
-  assert(getSow(s.id) === undefined, "deleteSow removes the SoW");
-  assert(listLogEntries(s.id).length === 0, "deleteSow cascades to its log entries");
 }
 
-// 8) Ids are monotonic: a deleted id is never recycled.
+// 5) Log entries: multiple pins, keyed by SoW id, cascade on delete.
+resetStore();
 {
-  resetDemo();
-  const clientId = listClients()[0].id;
-  const first = createSow({ clientId, title: "temp" });
+  const clientId = createClient({ name: "Log Co" }).id;
+  const p = createSow({ clientId, title: "Proj", status: "Approved" });
+  const e1 = addLogEntry(p.id, { type: "Note", body: "a" });
+  const e2 = addLogEntry(p.id, { type: "Working On", body: "b" });
+  addLogEntry(p.id, { type: "Backlog", body: "c" });
+  assert(listLogEntries(p.id).length === 3, "log entries key off the SoW id");
+  togglePinned(e1.id);
+  togglePinned(e2.id);
+  assert(listLogEntries(p.id).filter((e) => e.pinned).length === 2, "togglePinned allows multiple pins");
+  togglePinned(e1.id);
+  assert(listLogEntries(p.id).filter((e) => e.pinned).length === 1, "togglePinned toggles back off");
+  deleteSow(p.id);
+  assert(
+    getSow(p.id) === undefined && listLogEntries(p.id).length === 0,
+    "deleteSow removes the SoW and cascades its log entries"
+  );
+}
+
+// 6) Ids are monotonic: a deleted id is never recycled.
+resetStore();
+{
+  const clientId = createClient({ name: "Id Co" }).id;
+  const first = createSow({ clientId, title: "t1" });
   deleteSow(first.id);
-  const second = createSow({ clientId, title: "temp2" });
+  const second = createSow({ clientId, title: "t2" });
   assert(second.id !== first.id, "nextId must not recycle a deleted id");
 }
 
-// 9) Focus vs reminders separation + resolve.
+// 7) Focus vs reminders separation + resolve.
+resetStore();
 {
-  resetDemo();
-  const clientId = listClients()[0].id;
-  const p = createSow({ clientId, title: "Focus/Reminder check", status: "Approved" });
+  const clientId = createClient({ name: "Focus Co" }).id;
+  const p = createSow({ clientId, title: "P", status: "Approved" });
   const work = addLogEntry(p.id, { type: "Working On", body: "w", pinned: true });
   const rem = addLogEntry(p.id, { type: "Reminder", body: "r", pinned: true });
   const focus = getFocusItems();
@@ -154,13 +151,10 @@ function assert(cond: boolean, msg: string) {
   assert(!focus.some((f) => f.entry.id === rem.id), "focus excludes reminders");
   assert(getReminders().some((r) => r.entry.id === rem.id), "reminders includes the reminder");
   toggleResolved(rem.id);
-  assert(
-    !getReminders().some((r) => r.entry.id === rem.id),
-    "resolved reminder drops off the reminders list"
-  );
+  assert(!getReminders().some((r) => r.entry.id === rem.id), "resolved reminder drops off the list");
 }
 
-// 10) URL safety helpers (XSS guard for user-entered links).
+// 8) URL safety helpers (XSS guard for user-entered links).
 {
   assert(safeHref("https://example.com/doc") === "https://example.com/doc", "https passes");
   assert(safeHref("http://example.com") === "http://example.com/", "http passes");
@@ -176,7 +170,7 @@ function assert(cond: boolean, msg: string) {
   assert(safeMailto("not-an-email") === undefined, "non-email rejected");
 }
 
-resetDemo(); // leave the store clean
+resetStore(); // leave the store empty
 
 if (failures.length) {
   console.error(`\n❌ data self-check: ${failures.length} failure(s):`);

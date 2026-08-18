@@ -105,7 +105,6 @@ export const {
   toggleResolved,
   sortSows,
   sowComparator,
-  resetDemo,
 } = repo;
 
 export type {
