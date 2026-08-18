@@ -1,43 +1,39 @@
 import { useState, type FormEvent } from "react";
-import { login, signup } from "@/data/auth";
+import { login } from "@/data/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 
-/** Map backend error codes to something a person can read. */
+// TEMPORARY (remove before real production): the shared test login, prefilled so
+// anyone with the address can get straight in. It's one workspace — everyone who
+// signs in sees the same data.
+const TEST_EMAIL = "test@helm.local";
+const TEST_PASSWORD = "helmtest123";
+
 function friendly(code: string): string {
   switch (code) {
     case "invalid_credentials":
       return "Wrong email or password.";
-    case "email_taken":
-      return "That email is already registered. Try signing in.";
     case "account_locked":
       return "Too many attempts. Try again in a few minutes.";
-    case "no_active_membership":
-      return "This account has no workspace.";
     default:
       return "Something went wrong. Please try again.";
   }
 }
 
 export function Login() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
-  const [orgName, setOrgName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(TEST_EMAIL);
+  const [password, setPassword] = useState(TEST_PASSWORD);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isSignup = mode === "signup";
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      if (isSignup) await signup(orgName.trim(), email.trim(), password);
-      else await login(email.trim(), password);
+      await login(email.trim(), password);
       // On success the auth store updates and App swaps to the app shell.
     } catch (err) {
       setError(friendly(err instanceof Error ? err.message : ""));
@@ -62,27 +58,10 @@ export function Login() {
         </div>
 
         <Card className="p-6">
-          <h1 className="text-lg font-semibold tracking-tight">
-            {isSignup ? "Create your workspace" : "Sign in"}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isSignup ? "Set up a new workspace to get started." : "Welcome back."}
-          </p>
+          <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Welcome back.</p>
 
           <form onSubmit={submit} className="mt-5 space-y-4">
-            {isSignup && (
-              <div className="space-y-1.5">
-                <Label htmlFor="orgName">Workspace name</Label>
-                <Input
-                  id="orgName"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  placeholder="e.g. Acme Studio"
-                  required
-                  autoFocus
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -92,7 +71,6 @@ export function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                autoFocus={!isSignup}
               />
             </div>
             <div className="space-y-1.5">
@@ -102,8 +80,7 @@ export function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={isSignup ? "At least 10 characters" : "Your password"}
-                minLength={isSignup ? 10 : undefined}
+                placeholder="Your password"
                 required
               />
             </div>
@@ -111,23 +88,9 @@ export function Login() {
             {error && <p className="text-sm text-destructive">{error}</p>}
 
             <Button type="submit" className="w-full" disabled={busy}>
-              {busy ? "Please wait…" : isSignup ? "Create workspace" : "Sign in"}
+              {busy ? "Please wait…" : "Sign in"}
             </Button>
           </form>
-
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {isSignup ? "Already have a workspace?" : "No workspace yet?"}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setMode(isSignup ? "login" : "signup");
-                setError(null);
-              }}
-              className="font-medium text-primary hover:underline"
-            >
-              {isSignup ? "Sign in" : "Create one"}
-            </button>
-          </p>
         </Card>
       </div>
     </div>

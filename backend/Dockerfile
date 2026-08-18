@@ -19,6 +19,7 @@ EXPOSE 8080
 # reads /app and writes nothing, so read-only ownership by root is fine.
 USER node
 
-# Apply migrations, then start the API. If migrations fail, the container exits
-# (so a bad deploy is visible) rather than serving against a stale schema.
-CMD ["sh", "-c", "npm run migrate && npm run start"]
+# Apply migrations, seed the shared test login (TEMPORARY — remove `npm run seed`
+# before real production), then start the API. If a step fails the container
+# exits (so a bad deploy is visible) rather than serving against a stale schema.
+CMD ["sh", "-c", "npm run migrate && npm run seed && npm run start"]

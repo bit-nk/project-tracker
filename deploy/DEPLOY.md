@@ -91,10 +91,19 @@ aws lightsail delete-instance --instance-name helm
 aws lightsail release-static-ip --static-ip-name helm-ip
 ```
 
-## Note: the frontend is not yet wired to the API
-Demo data has been removed, so the deployed UI **starts empty** (empty states
-everywhere). It still reads its in-memory store, not the live API — a reload
-won't persist yet. To make the UI use the API, swap the data seam
-(`src/data/repo.ts`) to `fetch()` the `/api/*` endpoints (login, then CRUD). The
-backend and all endpoints are ready and running; that frontend change is the
-remaining step (BACKEND_TODO R8).
+## First run
+The app starts empty (no demo data). It's **one shared workspace**: everyone who
+signs in sees the same data. First boot seeds a shared login and the sign-in form
+comes **prefilled** with it, so anyone with the address just clicks **Sign in**:
+
+```
+email:    test@helm.local
+password: helmtest123
+```
+
+Everything created persists to Postgres on the box and is fetched back from the
+API on load.
+
+> **TEMPORARY** — the seeded login + prefill are for now. Before real production,
+> remove `npm run seed` from `backend/Dockerfile`'s CMD and the prefilled
+> constants in `src/pages/Login.tsx` (and set a real password).
