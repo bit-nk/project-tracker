@@ -68,11 +68,6 @@ aws lightsail allocate-static-ip --static-ip-name "${STATIC_IP_NAME}" >/dev/null
 aws lightsail attach-static-ip --static-ip-name "${STATIC_IP_NAME}" --instance-name "${INSTANCE_NAME}" >/dev/null
 IP="$(aws lightsail get-static-ip --static-ip-name "${STATIC_IP_NAME}" --query 'staticIp.ipAddress' --output text)"
 
-echo "== Enabling automatic snapshots (AWS-native backup) =="
-aws lightsail enable-add-on \
-  --resource-name "${INSTANCE_NAME}" \
-  --add-on-request addOnType=AutoSnapshot >/dev/null 2>&1 || true
-
 # Optional: point Route 53 at the instance if a domain + hosted zone are given.
 if [ -n "${HOSTED_ZONE_ID:-}" ] && [ -n "${DOMAIN}" ]; then
   echo "== Upserting Route 53 A record ${DOMAIN} -> ${IP} =="

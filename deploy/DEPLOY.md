@@ -40,8 +40,8 @@ auto-creates the Route 53 A record).
 
 The script creates the instance (1 GB, Ubuntu 24.04) with `launch-script.sh` as
 first-boot user-data, opens the firewall (443 + 80 public — **anyone with the
-address can reach it**; 22 restricted to your IP), attaches a static IP, enables
-automatic snapshots, and prints the IP + next steps.
+address can reach it**; 22 restricted to your IP), attaches a static IP, and
+prints the IP + next steps.
 
 ## After it runs
 
@@ -69,26 +69,22 @@ sudo docker run --rm -v /opt/helm:/app -w /app node:22-slim sh -c "npm ci && npm
 cd deploy && sudo docker compose --env-file .env up -d --build
 ```
 
-## Backups
-- **Automatic snapshots** — enabled by `deploy.sh`; whole-disk, AWS-native, restorable in the console.
-- **Nightly `pg_dump`** — `deploy/backup.sh` runs via `/etc/cron.daily`, keeps 7 days in
-  `/var/backups/helm`. To copy off-box, set `S3_BUCKET` (needs an IAM user with
-  `s3:PutObject` and its keys on the instance).
-
-Restore a dump:
+## Backups — none configured
+No backups are set up (to keep the Lightsail instance the only cost). Postgres
+data lives in the `pgdata` Docker volume on the instance; **if the instance is
+lost, the data is lost.** To add backups later, re-enable Lightsail snapshots:
 ```bash
-gunzip -c /var/backups/helm/helm-YYYYMMDD-HHMMSS.sql.gz \
-  | sudo docker compose -f /opt/helm/deploy/docker-compose.yml exec -T db psql -U postgres helm
+aws lightsail enable-add-on --resource-name helm --add-on-request addOnType=AutoSnapshot
 ```
 
 ## Costs
 | Item | ~Monthly |
 |---|---|
 | Lightsail `micro_2_0` (1 GB, static IP, 40 GB SSD, 2 TB transfer) | ~$5.00 |
-| Automatic snapshots (~40 GB) | ~$2.00 |
-| **Total** | **~$7/mo** |
+| **Total** | **~$5/mo** |
 
-Self-signed TLS is free; Let's Encrypt is free. Drop snapshots to sit at ~$5.
+The Lightsail instance is the only cost — no snapshots, no other AWS resources.
+Self-signed TLS (and Let's Encrypt, if you add a domain) is free.
 
 ## Tear down
 ```bash

@@ -81,15 +81,7 @@ docker run --rm -v "${APP_DIR}":/app -w /app node:22-slim \
 cd "${APP_DIR}/deploy"
 docker compose --env-file .env build
 
-# 7. Nightly backup cron (unconditional).
-install -m 700 "${APP_DIR}/deploy/backup.sh" /usr/local/bin/helm-backup
-cat > /etc/cron.daily/helm-backup <<EOF
-#!/usr/bin/env bash
-APP_DIR=${APP_DIR} /usr/local/bin/helm-backup
-EOF
-chmod +x /etc/cron.daily/helm-backup
-
-# 8. TLS + start the stack.
+# 7. TLS + start the stack.
 mkdir -p "${TLS_DIR}" /var/www/certbot
 
 if [ -z "${DOMAIN}" ]; then
