@@ -1,8 +1,9 @@
 # Deploying Helm to AWS Lightsail (~$5/month)
 
 Everything runs on **one** Lightsail instance: nginx + the Fastify API + PostgreSQL,
-in Docker. TLS is Let's Encrypt. Backups are Lightsail automatic snapshots plus a
-nightly `pg_dump`.
+in Docker. TLS is **self-signed** (no domain — reach it by IP) or **Let's Encrypt**
+(if you give it a domain). Backups are Lightsail automatic snapshots plus a nightly
+`pg_dump`.
 
 ```
 Browser ──HTTPS──▶ nginx ──/──▶ static frontend
@@ -10,50 +11,55 @@ Browser ──HTTPS──▶ nginx ──/──▶ static frontend
 ```
 
 ## Prerequisites (one time, on your machine)
-1. A **domain** you control (to create an A record).
-2. **AWS CLI** installed and configured with your credentials — they never leave your machine:
+1. **AWS CLI** installed and configured — credentials never leave your machine:
    ```bash
-   aws configure
+   aws configure          # verify with: aws sts get-caller-identity
    ```
-3. Your public IP for SSH access:
+2. Your public IP for SSH access:
    ```bash
    curl -s https://checkip.amazonaws.com
    ```
+3. *(Domain mode only)* a domain you can point an `A` record at.
 
-## Deploy
-From the `deploy/` directory:
+## Deploy — from the `deploy/` directory
 
+**No domain (self-signed TLS, reach by IP):**
 ```bash
-DOMAIN=app.example.com \
-EMAIL=you@example.com \
-SSH_CIDR=$(curl -s https://checkip.amazonaws.com)/32 \
-./deploy.sh
+SSH_CIDR=$(curl -s https://checkip.amazonaws.com)/32 ./deploy.sh
+```
+
+**With a domain (Let's Encrypt TLS):**
+```bash
+DOMAIN=app.example.com EMAIL=you@example.com \
+SSH_CIDR=$(curl -s https://checkip.amazonaws.com)/32 ./deploy.sh
 ```
 
 Optional overrides: `AWS_REGION` (default `us-east-1`), `INSTANCE_NAME` (`helm`),
-`BUNDLE` (`micro_2_0` = 1 GB), `REPO_URL`, `HOSTED_ZONE_ID` (auto-creates the
-Route 53 A record if set).
+`BUNDLE` (`micro_2_0` = 1 GB), `REPO_URL`, `HOSTED_ZONE_ID` (domain mode only —
+auto-creates the Route 53 A record).
 
-The script:
-1. Creates the Lightsail instance (1 GB, Ubuntu 24.04) with `launch-script.sh` as first-boot user-data.
-2. Opens the firewall — 443 + 80 public, 22 restricted to your IP.
-3. Allocates and attaches a static IP.
-4. Enables automatic snapshots.
-5. Prints the IP and next steps.
+The script creates the instance (1 GB, Ubuntu 24.04) with `launch-script.sh` as
+first-boot user-data, opens the firewall (443 + 80 public — **anyone with the
+address can reach it**; 22 restricted to your IP), attaches a static IP, enables
+automatic snapshots, and prints the IP + next steps.
 
 ## After it runs
-1. **Point DNS**: create an `A` record `app.example.com → <STATIC_IP>` (skipped if you passed `HOSTED_ZONE_ID`).
-2. **First boot** (a few minutes) installs Docker, builds the frontend, obtains the
-   TLS certificate, and starts the stack. Watch it:
-   ```bash
-   ssh ubuntu@<STATIC_IP>
-   sudo tail -f /var/log/helm-launch.log
-   ```
-3. Visit **https://app.example.com**. Health check: `https://app.example.com/api/health`.
 
-> DNS must resolve to the IP **before** the cert step succeeds. If you point DNS
-> after first boot, re-run the cert step: `sudo bash -c 'cd /opt/helm && bash deploy/launch-script.sh'`
-> is heavy — instead just re-run steps 6–7 (see the file), or reboot the instance.
+**No-domain mode** — no DNS needed. First boot (a few minutes) installs Docker,
+builds the app, generates a self-signed cert, and starts. Then open
+**`https://<STATIC_IP>/`** — your browser warns once about the self-signed cert
+(Advanced → proceed). Health check: `https://<STATIC_IP>/api/health`.
+
+**Domain mode** — create an `A` record `app.example.com → <STATIC_IP>` (skipped if
+you passed `HOSTED_ZONE_ID`). The box waits for DNS, then grabs a Let's Encrypt
+cert and starts; it retries every 15 min, so point DNS whenever. Then open
+**`https://app.example.com`**.
+
+Watch first boot either way:
+```bash
+ssh ubuntu@<STATIC_IP>
+sudo tail -f /var/log/helm-launch.log
+```
 
 ## Redeploying new code
 ```bash
@@ -82,8 +88,7 @@ gunzip -c /var/backups/helm/helm-YYYYMMDD-HHMMSS.sql.gz \
 | Automatic snapshots (~40 GB) | ~$2.00 |
 | **Total** | **~$7/mo** |
 
-TLS (Let's Encrypt) and DNS (if you use Lightsail's) are free. Drop snapshots to
-sit at ~$5.
+Self-signed TLS is free; Let's Encrypt is free. Drop snapshots to sit at ~$5.
 
 ## Tear down
 ```bash
@@ -91,8 +96,10 @@ aws lightsail delete-instance --instance-name helm
 aws lightsail release-static-ip --static-ip-name helm-ip
 ```
 
-## Note: wiring the frontend to the API
-This deploy serves the current frontend, which still reads its **in-memory demo
-data** (`src/data/repo.ts`). To make the UI use the live API, swap that data seam
-to `fetch()` calls against `/api/*` (login, then the CRUD endpoints). The backend
-and all endpoints are ready; that frontend change is the remaining step.
+## Note: the frontend is not yet wired to the API
+Demo data has been removed, so the deployed UI **starts empty** (empty states
+everywhere). It still reads its in-memory store, not the live API — a reload
+won't persist yet. To make the UI use the API, swap the data seam
+(`src/data/repo.ts`) to `fetch()` the `/api/*` endpoints (login, then CRUD). The
+backend and all endpoints are ready and running; that frontend change is the
+remaining step (BACKEND_TODO R8).

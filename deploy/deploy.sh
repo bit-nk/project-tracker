@@ -2,15 +2,24 @@
 # One-command provision of the whole app on AWS Lightsail.
 # Run from your OWN machine after `aws configure`. Your credentials stay local.
 #
-#   DOMAIN=app.example.com EMAIL=you@example.com SSH_CIDR=1.2.3.4/32 ./deploy.sh
+#   No domain (self-signed TLS, reach by IP):
+#     SSH_CIDR=1.2.3.4/32 ./deploy.sh
+#   With a domain (Let's Encrypt TLS):
+#     DOMAIN=app.example.com EMAIL=you@example.com SSH_CIDR=1.2.3.4/32 ./deploy.sh
 #
-# Required env: DOMAIN, EMAIL, SSH_CIDR (your IP for SSH access).
-# Optional env: AWS_REGION, INSTANCE_NAME, BUNDLE, BLUEPRINT, REPO_URL, HOSTED_ZONE_ID
+# Required env: SSH_CIDR (your IP for SSH access).
+# Optional env: DOMAIN + EMAIL (omit for self-signed/IP mode), AWS_REGION,
+#               INSTANCE_NAME, BUNDLE, BLUEPRINT, REPO_URL, HOSTED_ZONE_ID
 set -euo pipefail
 
-: "${DOMAIN:?set DOMAIN (e.g. app.example.com)}"
-: "${EMAIL:?set EMAIL (for the TLS certificate)}"
 : "${SSH_CIDR:?set SSH_CIDR (your IP, e.g. 1.2.3.4/32) — run: curl -s https://checkip.amazonaws.com}"
+DOMAIN="${DOMAIN:-}"
+EMAIL="${EMAIL:-}"
+# A domain needs an email for Let's Encrypt; without a domain the box self-signs.
+if [ -n "${DOMAIN}" ] && [ -z "${EMAIL}" ]; then
+  echo "EMAIL is required when DOMAIN is set (Let's Encrypt registration)." >&2
+  exit 1
+fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
 INSTANCE_NAME="${INSTANCE_NAME:-helm}"
@@ -64,25 +73,40 @@ aws lightsail enable-add-on \
   --resource-name "${INSTANCE_NAME}" \
   --add-on-request addOnType=AutoSnapshot >/dev/null 2>&1 || true
 
-# Optional: point Route 53 at the instance if a hosted zone is provided.
-if [ -n "${HOSTED_ZONE_ID:-}" ]; then
+# Optional: point Route 53 at the instance if a domain + hosted zone are given.
+if [ -n "${HOSTED_ZONE_ID:-}" ] && [ -n "${DOMAIN}" ]; then
   echo "== Upserting Route 53 A record ${DOMAIN} -> ${IP} =="
   command aws route53 change-resource-record-sets --hosted-zone-id "${HOSTED_ZONE_ID}" \
     --change-batch "{\"Changes\":[{\"Action\":\"UPSERT\",\"ResourceRecordSet\":{\"Name\":\"${DOMAIN}\",\"Type\":\"A\",\"TTL\":300,\"ResourceRecords\":[{\"Value\":\"${IP}\"}]}}]}" >/dev/null
 fi
 
-cat <<EOF
+if [ -n "${DOMAIN}" ]; then
+  cat <<EOF
 
 ============================================================
   Instance is up. Static IP: ${IP}
 ------------------------------------------------------------
   1) Point DNS: create an A record  ${DOMAIN} -> ${IP}
      (skip if you set HOSTED_ZONE_ID — done above)
-  2) First boot runs launch-script.sh: installs Docker, builds
-     the app, gets a TLS cert, and starts everything. This
-     takes a few minutes. Watch it via SSH:
-        ssh ubuntu@${IP}   # then:
-        sudo tail -f /var/log/helm-launch.log
+  2) First boot installs Docker, builds the app, gets a
+     Let's Encrypt cert once DNS resolves, then starts.
+        ssh ubuntu@${IP}  ->  sudo tail -f /var/log/helm-launch.log
   3) When it finishes:  https://${DOMAIN}
 ============================================================
 EOF
+else
+  cat <<EOF
+
+============================================================
+  Instance is up. Static IP: ${IP}
+------------------------------------------------------------
+  No domain: TLS is self-signed and the app is reached by IP.
+  No DNS needed. First boot installs Docker, builds the app,
+  and starts (a few minutes). Watch it:
+     ssh ubuntu@${IP}  ->  sudo tail -f /var/log/helm-launch.log
+  Then open:  https://${IP}/
+  Your browser warns once about the self-signed cert —
+  choose Advanced -> proceed. Anyone with the IP can reach it.
+============================================================
+EOF
+fi
