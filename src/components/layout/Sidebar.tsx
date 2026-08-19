@@ -155,8 +155,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   useEffect(() => {
     if (open) {
       setRender(true);
-      const id = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(id);
+      // setTimeout, not requestAnimationFrame: rAF is paused on a backgrounded
+      // tab, which would leave the drawer stuck off-screen. The small delay lets
+      // the closed state paint once so the enter transition still fires.
+      const id = setTimeout(() => setVisible(true), 20);
+      return () => clearTimeout(id);
     }
     setVisible(false);
     const t = setTimeout(() => setRender(false), 320);
