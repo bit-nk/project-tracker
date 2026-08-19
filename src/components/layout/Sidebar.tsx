@@ -6,6 +6,8 @@ import {
   LayoutDashboard,
   LogOut,
   Moon,
+  PanelLeft,
+  PanelLeftClose,
   Sun,
   Users,
   X,
@@ -55,9 +57,10 @@ function Compass() {
 }
 
 /**
- * Nav with a single accent line that slides to the active item (measured from
- * the link NavLink marks with aria-current). `stagger` cascades the items in/out
- * for the mobile drawer, driven by `visible`.
+ * Nav with an accent line that slides to the active item (measured from the link
+ * NavLink marks with aria-current). The active item also gets a soft fill so the
+ * current page is unmistakable. `stagger` cascades the items in/out (driven by
+ * `visible`) for the mobile drawer and the desktop collapse/expand.
  */
 function NavItems({
   onNavigate,
@@ -70,22 +73,22 @@ function NavItems({
 }) {
   const { pathname } = useLocation();
   const navRef = useRef<HTMLElement>(null);
-  const [line, setLine] = useState<{ top: number; height: number } | null>(null);
+  const [lineBox, setLineBox] = useState<{ top: number; height: number } | null>(null);
 
   useLayoutEffect(() => {
     const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
-    setLine(active ? { top: active.offsetTop, height: active.offsetHeight } : null);
+    setLineBox(active ? { top: active.offsetTop, height: active.offsetHeight } : null);
   }, [pathname]);
 
   return (
     <nav ref={navRef} className="relative flex flex-1 flex-col gap-1 px-3">
       <span
         aria-hidden
-        className="pointer-events-none absolute left-1.5 w-0.5 rounded-full bg-primary transition-all duration-300 ease-out"
+        className="pointer-events-none absolute left-1 w-1 rounded-full bg-primary transition-all duration-300 ease-out"
         style={{
-          top: (line?.top ?? 0) + 7,
-          height: Math.max(0, (line?.height ?? 0) - 14),
-          opacity: line ? 1 : 0,
+          top: (lineBox?.top ?? 0) + 6,
+          height: Math.max(0, (lineBox?.height ?? 0) - 12),
+          opacity: lineBox ? 1 : 0,
         }}
       />
       {NAV.map((item, i) => {
@@ -103,7 +106,7 @@ function NavItems({
                 stagger ? "transition-all duration-300" : "transition-colors",
                 stagger && !visible && "-translate-x-3 opacity-0",
                 isActive
-                  ? "text-sidebar-accent-foreground"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )
             }
@@ -147,9 +150,19 @@ function SidebarFooter() {
   );
 }
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  // Keep the drawer mounted through its exit animation: `render` controls the DOM,
-  // `visible` drives the enter/leave transitions.
+export function Sidebar({
+  open,
+  onClose,
+  collapsed = false,
+  onToggleCollapse,
+}: {
+  open: boolean;
+  onClose: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}) {
+  // Keep the mobile drawer mounted through its exit animation: `render` controls
+  // the DOM, `visible` drives the enter/leave transitions.
   const [render, setRender] = useState(open);
   const [visible, setVisible] = useState(open);
   useEffect(() => {
@@ -168,14 +181,39 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
   return (
     <>
-      {/* Desktop: fixed rail */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex">
-        <div className="flex h-16 items-center">
+      {/* Desktop: fixed rail, collapsible via the toggle. */}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-out md:flex",
+          collapsed && "md:-translate-x-full"
+        )}
+      >
+        <div className="flex h-16 items-center justify-between pr-2">
           <Brand />
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            aria-label="Collapse sidebar"
+            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <PanelLeftClose className="h-5 w-5" />
+          </button>
         </div>
-        <NavItems />
+        <NavItems stagger visible={!collapsed} />
         <SidebarFooter />
       </aside>
+
+      {/* Desktop: floating button to reopen the collapsed rail. */}
+      {collapsed && (
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          aria-label="Open sidebar"
+          className="fixed left-3 top-3 z-30 hidden rounded-md border border-border bg-background p-2 text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground md:inline-flex"
+        >
+          <PanelLeft className="h-5 w-5" />
+        </button>
+      )}
 
       {/* Mobile: slide-over drawer with a staggered menu reveal. */}
       {render && (
