@@ -17,6 +17,8 @@ function friendly(code: string): string {
       return "Wrong email or password.";
     case "account_locked":
       return "Too many attempts. Try again in a few minutes.";
+    case "network_error":
+      return "Can't reach the server. Check your connection and try again.";
     default:
       return "Something went wrong. Please try again.";
   }

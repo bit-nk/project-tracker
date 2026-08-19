@@ -1,0 +1,13 @@
+# Local development override: publishes the API on localhost:8080 so the Vite
+# dev server's /api proxy can reach it. Not used in production (nginx proxies
+# to the api container over the compose network).
+#
+# Run the local backend (db + api, seeds the shared login) with:
+#   cd deploy
+#   cp .env.example .env    # then fill in dev values (or reuse your own)
+#   docker compose --env-file .env -f docker-compose.yml -f compose.dev.yml up -d --build db api
+# Then start the frontend from the repo root: npm run dev
+services:
+  api:
+    ports:
+      - "8080:8080"

@@ -42,11 +42,17 @@ export function clearTokens() {
 }
 
 async function authPost(path: string, body: unknown): Promise<any> {
-  const res = await fetch(BASE + path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // fetch rejects only when the server can't be reached at all.
+    throw new Error("network_error");
+  }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new Error(data?.error ?? res.statusText);
   return data;
