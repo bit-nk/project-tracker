@@ -190,7 +190,7 @@ export async function updateClient(id: ID, patch: Partial<ClientInput>): Promise
   }
 
   // ponytail: contact edits replace the whole set (fetch ids -> delete -> recreate).
-  // Ceiling: not atomic and re-mints contact ids; fine for a low-contact app.
+  // Ceiling: not atomic and re-mints contact ids. Fine for a low-contact app.
   if (patch.contacts !== undefined) {
     const detail = await api.get(`/clients/${id}`);
     for (const existing of detail.contacts ?? []) await api.del(`/contacts/${existing.id}`);

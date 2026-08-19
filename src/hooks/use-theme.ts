@@ -1,6 +1,6 @@
 /**
  * Light/dark theme, persisted to localStorage and applied as a `.dark` class on
- * <html> (Tailwind's `darkMode: "class"`). Defaults to light; dark is opt-in.
+ * <html> (Tailwind's `darkMode: "class"`). Defaults to light. Dark is opt-in.
  * Backed by a small module store so every `useTheme()` consumer (e.g. multiple
  * sidebar instances) stays in sync. The pre-paint script in index.html applies
  * the initial class to avoid a flash.
@@ -12,7 +12,7 @@ const STORAGE_KEY = "helm-theme";
 
 function getInitial(): Theme {
   if (typeof window === "undefined") return "light";
-  // Default to light; dark only when the user explicitly chose it.
+  // Default to light. Dark only when the user explicitly chose it.
   return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
 }
 

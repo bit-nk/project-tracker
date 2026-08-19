@@ -1,5 +1,5 @@
 // Pure SoW status state machine — no DB/env imports so it is unit-checkable.
-// A project IS an approved SoW; this computes a full field set for a target
+// A project IS an approved SoW. This computes a full field set for a target
 // status that satisfies every CHECK constraint on the `sow` table.
 
 export const STATUS = ["Draft", "Sent", "Approved", "Rejected"] as const;

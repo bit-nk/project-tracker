@@ -2,7 +2,7 @@
  * React binding for the data-access seam.
  *
  * Components import reads (and mutations) from HERE, never from `@/data/repo`.
- * Reads subscribe to the store via `useSyncExternalStore`; mutations are
+ * Reads subscribe to the store via `useSyncExternalStore`. Mutations are
  * re-exported as-is. When the backend goes async, loading/error state lands here
  * and components keep calling `useSows()` etc. unchanged.
  */
@@ -89,7 +89,7 @@ export function useReminders() {
   return useMemo(() => repo.getReminders(), [v]);
 }
 
-// ---- Mutations (imperative; call from handlers) ----
+// ---- Mutations (imperative, call from handlers) ----
 export const {
   createClient,
   updateClient,

@@ -9,7 +9,7 @@ export const pool = new Pool({
 });
 
 // A pooled client can lose its backend connection while idle (db restart, TCP
-// reset, OOM). node-postgres emits 'error' on the pool; with no listener Node
+// reset, OOM). node-postgres emits 'error' on the pool. With no listener Node
 // treats it as an unhandled 'error' event and exits the process. The pool has
 // already discarded the broken client, so logging is all that is needed.
 pool.on("error", (err) => console.error("idle pg client error:", err.message));

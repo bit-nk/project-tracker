@@ -1,7 +1,7 @@
 /**
  * Thin fetch client for the Helm API. Attaches the bearer token, refreshes it
  * once on a 401 then retries, and returns parsed JSON (throwing ApiError on
- * failure). Same-origin `/api` in production; the Vite dev proxy in dev.
+ * failure). Same-origin `/api` in production. The Vite dev proxy in dev.
  */
 import { getAccessToken, refresh, clearTokens } from "./auth";
 

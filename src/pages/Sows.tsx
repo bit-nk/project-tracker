@@ -85,7 +85,7 @@ export function Sows() {
     <div className="space-y-6">
       <PageHeader
         title="Statements of Work"
-        description="Grouped by client. Expand a client to see their SoWs; approve one and it becomes a project."
+        description="Grouped by client. Expand a client to see their SoWs. Approve one and it becomes a project."
         actions={
           <Button onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4" />
