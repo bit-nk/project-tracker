@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   FileText,
   FolderKanban,
@@ -37,9 +38,7 @@ function Brand() {
       </span>
       <div className="leading-tight">
         <div className="text-base font-semibold tracking-tight">Helm</div>
-        <div className="text-[11px] text-muted-foreground">
-          SoW &amp; Project Tracker
-        </div>
+        <div className="text-[11px] text-muted-foreground">SoW &amp; Project Tracker</div>
       </div>
     </div>
   );
@@ -49,26 +48,47 @@ function Brand() {
 function Compass() {
   return (
     <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M12 12 16.5 7.5 13.5 13.5 7.5 16.5 10.5 10.5Z"
-        fill="currentColor"
-      />
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 12 16.5 7.5 13.5 13.5 7.5 16.5 10.5 10.5Z" fill="currentColor" />
     </svg>
   );
 }
 
-function NavItems({ onNavigate }: { onNavigate?: () => void }) {
+/**
+ * Nav with a single accent line that slides to the active item (measured from
+ * the link NavLink marks with aria-current). `stagger` cascades the items in/out
+ * for the mobile drawer, driven by `visible`.
+ */
+function NavItems({
+  onNavigate,
+  stagger = false,
+  visible = true,
+}: {
+  onNavigate?: () => void;
+  stagger?: boolean;
+  visible?: boolean;
+}) {
+  const { pathname } = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+  const [line, setLine] = useState<{ top: number; height: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const active = navRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    setLine(active ? { top: active.offsetTop, height: active.offsetHeight } : null);
+  }, [pathname]);
+
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV.map((item) => {
+    <nav ref={navRef} className="relative flex flex-1 flex-col gap-1 px-3">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-1.5 w-0.5 rounded-full bg-primary transition-all duration-300 ease-out"
+        style={{
+          top: (line?.top ?? 0) + 7,
+          height: Math.max(0, (line?.height ?? 0) - 14),
+          opacity: line ? 1 : 0,
+        }}
+      />
+      {NAV.map((item, i) => {
         const Icon = item.icon;
         return (
           <NavLink
@@ -76,11 +96,14 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
             to={item.to}
             end={item.end}
             onClick={onNavigate}
+            style={stagger ? { transitionDelay: `${i * 55}ms` } : undefined}
             className={({ isActive }) =>
               cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
+                stagger ? "transition-all duration-300" : "transition-colors",
+                stagger && !visible && "-translate-x-3 opacity-0",
                 isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  ? "text-sidebar-accent-foreground"
                   : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
               )
             }
@@ -124,13 +147,22 @@ function SidebarFooter() {
   );
 }
 
-export function Sidebar({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // Keep the drawer mounted through its exit animation: `render` controls the DOM,
+  // `visible` drives the enter/leave transitions.
+  const [render, setRender] = useState(open);
+  const [visible, setVisible] = useState(open);
+  useEffect(() => {
+    if (open) {
+      setRender(true);
+      const id = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(id);
+    }
+    setVisible(false);
+    const t = setTimeout(() => setRender(false), 320);
+    return () => clearTimeout(t);
+  }, [open]);
+
   return (
     <>
       {/* Desktop: fixed rail */}
@@ -142,16 +174,22 @@ export function Sidebar({
         <SidebarFooter />
       </aside>
 
-      {/* Mobile: slide-over drawer. Only mounted when open so its links are
-          never in the tab order (and never inside an aria-hidden region) while
-          closed. */}
-      {open && (
+      {/* Mobile: slide-over drawer with a staggered menu reveal. */}
+      {render && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div
-            className="absolute inset-0 animate-in fade-in-0 bg-black/50 backdrop-blur-sm"
+            className={cn(
+              "absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300",
+              visible ? "opacity-100" : "opacity-0"
+            )}
             onClick={onClose}
           />
-          <aside className="absolute inset-y-0 left-0 flex w-64 animate-in slide-in-from-left duration-200 flex-col border-r border-sidebar-border bg-sidebar">
+          <aside
+            className={cn(
+              "absolute inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-300 ease-out",
+              visible ? "translate-x-0" : "-translate-x-full"
+            )}
+          >
             <div className="flex h-16 items-center justify-between pr-3">
               <Brand />
               <button
@@ -162,7 +200,7 @@ export function Sidebar({
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <NavItems onNavigate={onClose} />
+            <NavItems onNavigate={onClose} stagger visible={visible} />
             <SidebarFooter />
           </aside>
         </div>
