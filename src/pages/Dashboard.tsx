@@ -14,6 +14,7 @@ import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { LogTypeBadge } from "@/components/common/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
+import { GlowCard } from "@/components/ui/glow-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -158,14 +159,14 @@ function MiniStat({
   sub?: string;
 }) {
   return (
-    <Card className="p-4">
+    <GlowCard className="p-4">
       <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
       <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
-    </Card>
+    </GlowCard>
   );
 }
 
@@ -184,7 +185,7 @@ function ProjectsByStatus({
     { label: "Completed", n: completed, dot: "bg-success" },
   ];
   return (
-    <Card className="p-4 sm:col-span-2">
+    <GlowCard className="p-4 sm:col-span-2">
       <div className="mb-2 text-xs font-medium text-muted-foreground">Projects by status</div>
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         {rows.map((r) => (
@@ -195,7 +196,7 @@ function ProjectsByStatus({
           </div>
         ))}
       </div>
-    </Card>
+    </GlowCard>
   );
 }
 
@@ -292,7 +293,7 @@ function HomeCard({
   const navigate = useNavigate();
   const ActionIcon = action.icon;
   return (
-    <Card
+    <GlowCard
       role="button"
       tabIndex={0}
       onClick={() => navigate(path)}
@@ -325,7 +326,7 @@ function HomeCard({
         {/* Divider, not a nested card: the body sits on the card surface. */}
         <div className="mt-3 border-t border-border pt-3">{children}</div>
       </CardContent>
-    </Card>
+    </GlowCard>
   );
 }
 

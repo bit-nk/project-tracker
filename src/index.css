@@ -118,6 +118,38 @@
   }
 }
 
+/* Border glow that follows the cursor on hover (see components/ui/glow-card). */
+.glow-card {
+  position: relative;
+  isolation: isolate;
+}
+.glow-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: radial-gradient(
+    150px circle at var(--glow-x, 50%) var(--glow-y, 50%),
+    hsl(var(--primary) / 0.6),
+    transparent 65%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.glow-card:hover::before {
+  opacity: 1;
+}
+
 /* Respect the OS "reduce motion" setting: near-instant transitions/animations. */
 @media (prefers-reduced-motion: reduce) {
   *,
