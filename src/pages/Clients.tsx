@@ -86,9 +86,10 @@ export function Clients() {
         <p className="text-sm text-muted-foreground">No clients match.</p>
       ) : (
         <Card className="divide-y divide-border overflow-hidden">
-          {filtered.map((c) => (
+          {filtered.map((c, i) => (
             <ClientRow
               key={c.id}
+              index={i}
               client={c}
               sowCount={sowCounts.get(c.id) ?? 0}
               projectCount={projectCounts.get(c.id) ?? 0}
@@ -107,13 +108,16 @@ function ClientRow({
   client,
   sowCount,
   projectCount,
+  index,
 }: {
   client: Client;
   sowCount: number;
   projectCount: number;
+  index: number;
 }) {
   const navigate = useNavigate();
   const go = () => navigate(`/clients/${client.id}`);
+  const reveal = index >= 10;
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(client.name);
 
@@ -157,7 +161,8 @@ function ClientRow({
           go();
         }
       }}
-      className="flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      style={reveal ? { animationDelay: `${(index - 10) * 40}ms` } : undefined}
+      className={`flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring${reveal ? " list-in" : ""}`}
     >
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{client.name}</div>

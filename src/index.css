@@ -118,6 +118,23 @@
   }
 }
 
+/* Entrance for long lists: items past the first 10 fade/slide in (staggered via
+   an inline animation-delay). animation-fill-mode: both keeps them visible if the
+   animation is skipped (reduced-motion collapses the duration below). */
+@keyframes list-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.list-in {
+  animation: list-in 0.3s ease-out both;
+}
+
 /* Border glow that follows the cursor on hover (see components/ui/glow-card). */
 .glow-card {
   position: relative;

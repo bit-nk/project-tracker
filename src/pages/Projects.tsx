@@ -107,9 +107,10 @@ export function Projects() {
         <p className="text-sm text-muted-foreground">No projects match.</p>
       ) : (
         <Card className="divide-y divide-border overflow-hidden">
-          {visible.map((project) => (
+          {visible.map((project, i) => (
             <ProjectRow
               key={project.id}
+              index={i}
               project={project}
               clientName={clientNames.get(project.clientId) ?? "Unknown client"}
             />
@@ -126,10 +127,11 @@ export function Projects() {
   );
 }
 
-function ProjectRow({ project, clientName }: { project: Sow; clientName: string }) {
+function ProjectRow({ project, clientName, index }: { project: Sow; clientName: string; index: number }) {
   const navigate = useNavigate();
   const pinned = usePinnedEntries(project.id);
   const path = `/projects/${project.id}`;
+  const reveal = index >= 10;
 
   return (
     <div
@@ -142,7 +144,8 @@ function ProjectRow({ project, clientName }: { project: Sow; clientName: string 
           navigate(path);
         }
       }}
-      className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      style={reveal ? { animationDelay: `${(index - 10) * 40}ms` } : undefined}
+      className={`flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring${reveal ? " list-in" : ""}`}
     >
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="text-xs text-muted-foreground">{clientName}</div>

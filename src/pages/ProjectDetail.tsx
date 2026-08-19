@@ -252,7 +252,7 @@ export function ProjectDetail() {
           <p className="text-sm text-muted-foreground">No entries match.</p>
         ) : (
           <div className="space-y-2">
-            {timeline.map((entry) =>
+            {timeline.map((entry, i) =>
               editingId === entry.id ? (
                 <LogEntryForm
                   key={entry.id}
@@ -261,7 +261,7 @@ export function ProjectDetail() {
                   onDone={() => setEditingId(null)}
                 />
               ) : (
-                <LogRow key={entry.id} entry={entry} onEdit={openEditLog} />
+                <LogRow key={entry.id} index={i} entry={entry} onEdit={openEditLog} />
               )
             )}
           </div>
@@ -276,12 +276,18 @@ export function ProjectDetail() {
 function LogRow({
   entry,
   onEdit,
+  index,
 }: {
   entry: ProjectLogEntry;
   onEdit: (e: ProjectLogEntry) => void;
+  index: number;
 }) {
+  const reveal = index >= 10;
   return (
-    <Card className="p-3">
+    <Card
+      className={`p-3${reveal ? " list-in" : ""}`}
+      style={reveal ? { animationDelay: `${(index - 10) * 40}ms` } : undefined}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <LogTypeBadge type={entry.type} />
