@@ -257,7 +257,7 @@ function SectionCard({
     <Card>
       <CardContent className="space-y-3 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold tracking-tight">{title}</h2>
+          <h2 className="font-semibold">{title}</h2>
           <div className="flex items-center gap-2">
             {count != null && (
               <span className="text-xs tabular-nums text-muted-foreground">{count}</span>

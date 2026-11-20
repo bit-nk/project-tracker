@@ -122,7 +122,9 @@ export function ProjectDetail() {
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <Meta label="Started">{formatDate(project.startedAt)}</Meta>
           {project.completedAt && <Meta label="Completed">{formatDate(project.completedAt)}</Meta>}
-          <span className="h-4 w-px bg-border" />
+          {(project.repoUrl || project.stagingUrl || project.docLink || !!project.links?.length) && (
+            <span className="h-4 w-px bg-border" />
+          )}
           {project.repoUrl && <MetaLink href={project.repoUrl}>Repo</MetaLink>}
           {project.stagingUrl && <MetaLink href={project.stagingUrl}>Staging</MetaLink>}
           {project.docLink && <MetaLink href={project.docLink}>SoW doc</MetaLink>}
@@ -168,8 +170,8 @@ export function ProjectDetail() {
       {/* Current focus (pinned) */}
       {pinned.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
-            <Pin className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Pin className="h-3.5 w-3.5 text-muted-foreground" />
             Current focus
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
@@ -196,7 +198,7 @@ export function ProjectDetail() {
       {/* Log - the heart of the page */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">
+          <h2 className="text-lg font-semibold">
             Log <span className="text-sm font-normal text-muted-foreground">{allEntries.length}</span>
           </h2>
           <Button size="sm" onClick={openNewLog}>
@@ -206,7 +208,7 @@ export function ProjectDetail() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative sm:max-w-xs">
+          <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -217,7 +219,7 @@ export function ProjectDetail() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {typeFilters.map((t) => (
             <Button
               key={t}

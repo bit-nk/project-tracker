@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, FileText, FolderKanban, Pencil, Plus, Search, Users } from "lucide-react";
+import { ChevronRight, Pencil, Plus, Search, Users } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Card } from "@/components/ui/card";
@@ -166,37 +166,21 @@ function ClientRow({
     >
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{client.name}</div>
-        {client.industry && (
-          <div className="truncate text-sm text-muted-foreground">
-            {client.industry}
-          </div>
-        )}
+        <div className="truncate text-sm text-muted-foreground">
+          {[
+            client.industry,
+            count(client.contacts?.length ?? 0, "contact"),
+            count(sowCount, "SoW"),
+            count(projectCount, "project"),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
         {client.notes && (
           <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
             {client.notes}
           </p>
         )}
-      </div>
-
-      <div className="flex shrink-0 items-center gap-4 text-sm text-muted-foreground">
-        <span
-          className="flex items-center gap-1.5"
-          title={`${client.contacts?.length ?? 0} contacts`}
-        >
-          <Users className="h-4 w-4" />
-          <span className="tabular-nums">{client.contacts?.length ?? 0}</span>
-        </span>
-        <span className="flex items-center gap-1.5" title={`${sowCount} SoWs`}>
-          <FileText className="h-4 w-4" />
-          <span className="tabular-nums">{sowCount}</span>
-        </span>
-        <span
-          className="flex items-center gap-1.5"
-          title={`${projectCount} projects`}
-        >
-          <FolderKanban className="h-4 w-4" />
-          <span className="tabular-nums">{projectCount}</span>
-        </span>
       </div>
 
       <Button
@@ -217,3 +201,5 @@ function ClientRow({
     </div>
   );
 }
+
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;

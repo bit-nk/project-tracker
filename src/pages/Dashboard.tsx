@@ -1,18 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  AlarmClock,
-  ArrowRight,
-  Check,
-  FileText,
-  Percent,
-  PinOff,
-  Plus,
-  Target,
-} from "lucide-react";
+import { ArrowRight, Check, PinOff, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
-import { LogTypeBadge } from "@/components/common/StatusBadge";
+import { LogTypeBadge, StatusDot, WORK_TONE } from "@/components/common/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
 import { GlowCard } from "@/components/ui/glow-card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +22,6 @@ import {
 } from "@/hooks/use-repo";
 import type { FocusItem, ReminderItem } from "@/hooks/use-repo";
 import { formatRelative } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export function Dashboard() {
   const stats = useStats();
@@ -50,13 +40,11 @@ export function Dashboard() {
       {/* Compact top strip */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <MiniStat
-          icon={FileText}
           label="Total SoWs"
           value={stats.sow.total}
           sub={`${stats.sow.byStatus.Draft} draft · ${stats.sow.approved} approved`}
         />
         <MiniStat
-          icon={Percent}
           label="Conversion"
           value={`${Math.round(stats.sow.conversionRate * 100)}%`}
           sub={`${stats.sow.approved} of ${stats.sow.decided} decided`}
@@ -71,8 +59,7 @@ export function Dashboard() {
       {/* Reminders */}
       <section>
         <div className="mb-3 flex items-center gap-2">
-          <AlarmClock className="h-4 w-4 text-info" />
-          <h2 className="text-lg font-semibold tracking-tight">Reminders</h2>
+          <h2 className="text-lg font-semibold">Reminders</h2>
           <span className="text-sm text-muted-foreground">{reminders.length}</span>
           <Button
             variant="ghost"
@@ -110,8 +97,7 @@ export function Dashboard() {
       {/* Current focus */}
       <section>
         <div className="mb-3 flex items-center gap-2">
-          <Target className="h-4 w-4 text-primary" />
-          <h2 className="text-lg font-semibold tracking-tight">Current focus</h2>
+          <h2 className="text-lg font-semibold">Current focus</h2>
           <span className="text-sm text-muted-foreground">{focus.length}</span>
           <div className="ml-auto flex items-center gap-1">
             <Button variant="ghost" size="sm" onClick={() => setAddFocus((v) => !v)}>
@@ -147,26 +133,13 @@ export function Dashboard() {
   );
 }
 
-function MiniStat({
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string | number;
-  sub?: string;
-}) {
+function MiniStat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <GlowCard className="p-4">
-      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
-      </div>
+    <Card className="p-4">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
-    </GlowCard>
+    </Card>
   );
 }
 
@@ -180,23 +153,23 @@ function ProjectsByStatus({
   completed: number;
 }) {
   const rows = [
-    { label: "Active", n: active, dot: "bg-primary" },
-    { label: "On Hold", n: onHold, dot: "bg-warning" },
-    { label: "Completed", n: completed, dot: "bg-success" },
+    { label: "Active", n: active, dot: WORK_TONE.Active },
+    { label: "On Hold", n: onHold, dot: WORK_TONE["On Hold"] },
+    { label: "Completed", n: completed, dot: WORK_TONE.Completed },
   ];
   return (
-    <GlowCard className="p-4 sm:col-span-2">
+    <Card className="p-4 sm:col-span-2">
       <div className="mb-2 text-xs font-medium text-muted-foreground">Projects by status</div>
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         {rows.map((r) => (
           <div key={r.label} className="flex items-center gap-2">
-            <span className={cn("h-2.5 w-2.5 rounded-full", r.dot)} />
+            <StatusDot tone={r.dot} />
             <span className="text-sm text-muted-foreground">{r.label}</span>
             <span className="text-sm font-semibold tabular-nums">{r.n}</span>
           </div>
         ))}
       </div>
-    </GlowCard>
+    </Card>
   );
 }
 
@@ -339,10 +312,10 @@ function FocusCard({ item }: { item: FocusItem }) {
       projectTitle={project.title}
       action={{ label: "Remove", icon: PinOff, onClick: () => togglePinned(entry.id) }}
     >
-      <div className="mb-1.5">
+      <div className="mb-2">
         <LogTypeBadge type={entry.type} />
       </div>
-      <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
+      <p className="line-clamp-3 text-sm">{entry.body}</p>
     </HomeCard>
   );
 }
@@ -356,14 +329,11 @@ function ReminderCard({ item }: { item: ReminderItem }) {
       projectTitle={project.title}
       action={{ label: "Resolve", icon: Check, onClick: () => toggleResolved(entry.id) }}
     >
-      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-info">
-        <AlarmClock className="h-3.5 w-3.5" />
-        Reminder
-        <span className="font-normal text-muted-foreground">
-          · {formatRelative(entry.createdAt)}
-        </span>
+      {/* No "Reminder" label: the section heading already says it. */}
+      <div className="mb-2 text-xs text-muted-foreground">
+        Added {formatRelative(entry.createdAt)}
       </div>
-      <p className="line-clamp-3 text-sm text-foreground/90">{entry.body}</p>
+      <p className="line-clamp-3 text-sm">{entry.body}</p>
     </HomeCard>
   );
 }

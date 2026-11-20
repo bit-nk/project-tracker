@@ -54,13 +54,13 @@ export function Login() {
             </svg>
           </span>
           <div className="leading-tight">
-            <div className="text-base font-semibold tracking-tight">Helm</div>
+            <div className="text-base font-semibold">Helm</div>
             <div className="text-[11px] text-muted-foreground">SoW &amp; Project Tracker</div>
           </div>
         </div>
 
         <Card className="p-6">
-          <h1 className="text-lg font-semibold tracking-tight">Sign in</h1>
+          <h1 className="text-lg font-semibold">Sign in</h1>
           <p className="mt-1 text-sm text-muted-foreground">Welcome back.</p>
 
           <form onSubmit={submit} className="mt-5 space-y-4">

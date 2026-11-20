@@ -64,9 +64,9 @@ export function Projects() {
         }
       />
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative sm:max-w-xs">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="relative sm:w-64">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={query}
@@ -158,7 +158,7 @@ function ProjectRow({ project, clientName, index }: { project: Sow; clientName: 
             <Pin className="h-3 w-3 shrink-0" />
             <span className="truncate">{pinned[0].body}</span>
             {pinned.length > 1 && (
-              <span className="shrink-0 text-muted-foreground/80">+{pinned.length - 1}</span>
+              <span className="shrink-0">+{pinned.length - 1}</span>
             )}
           </p>
         )}

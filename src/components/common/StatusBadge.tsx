@@ -1,76 +1,55 @@
-import {
-  AlarmClock,
-  CheckCircle2,
-  Clock,
-  FilePen,
-  Hammer,
-  ListTodo,
-  PauseCircle,
-  Send,
-  StickyNote,
-  Users,
-  XCircle,
-  Zap,
-} from "lucide-react";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
-import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { LogEntryType, SowStatus, WorkStatus } from "@/types";
 
-type Meta = { variant: BadgeProps["variant"]; icon: LucideIcon };
+// Every status and log type is a small dot plus its name. Color only where it
+// means something (in motion, waiting, needs attention). The rest stay grey.
+const NEUTRAL = "bg-muted-foreground/60";
 
-const SOW: Record<SowStatus, Meta> = {
-  Draft: { variant: "muted", icon: FilePen },
-  Sent: { variant: "warning", icon: Send },
-  Approved: { variant: "success", icon: CheckCircle2 },
-  Rejected: { variant: "destructive", icon: XCircle },
+const SOW: Record<SowStatus, string> = {
+  Draft: NEUTRAL,
+  Sent: "bg-warning",
+  Approved: "bg-success",
+  Rejected: "bg-destructive",
 };
 
-const WORK: Record<WorkStatus, Meta> = {
-  Active: { variant: "default", icon: Zap },
-  "On Hold": { variant: "warning", icon: PauseCircle },
-  Completed: { variant: "success", icon: CheckCircle2 },
+// Completed is grey, not green: primary and success are near-identical hues, and
+// finished work should recede next to what is active.
+export const WORK_TONE: Record<WorkStatus, string> = {
+  Active: "bg-primary",
+  "On Hold": "bg-warning",
+  Completed: NEUTRAL,
 };
 
-const LOG: Record<LogEntryType, Meta> = {
-  "Working On": { variant: "default", icon: Hammer },
-  Pending: { variant: "warning", icon: Clock },
-  Reminder: { variant: "info", icon: AlarmClock },
-  Backlog: { variant: "muted", icon: ListTodo },
-  "Meeting Note": { variant: "secondary", icon: Users },
-  Note: { variant: "outline", icon: StickyNote },
+const LOG: Record<LogEntryType, string> = {
+  "Working On": "bg-primary",
+  Pending: "bg-warning",
+  Reminder: "bg-info",
+  Backlog: NEUTRAL,
+  "Meeting Note": NEUTRAL,
+  Note: NEUTRAL,
 };
 
-function StatusBadgeBase({
-  meta,
-  label,
-  showIcon = true,
-}: {
-  meta: Meta;
-  label: string;
-  showIcon?: boolean;
-}) {
-  const Icon = meta.icon;
+export function StatusDot({ tone, className }: { tone: string; className?: string }) {
+  return <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", tone, className)} />;
+}
+
+function Status({ tone, label }: { tone: string; label: string }) {
   return (
-    <Badge variant={meta.variant}>
-      {showIcon && <Icon className="h-3 w-3" />}
+    <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+      <StatusDot tone={tone} />
       {label}
-    </Badge>
+    </span>
   );
 }
 
-export function SowStatusBadge({ status, showIcon }: { status: SowStatus; showIcon?: boolean }) {
-  return <StatusBadgeBase meta={SOW[status]} label={status} showIcon={showIcon} />;
+export function SowStatusBadge({ status }: { status: SowStatus }) {
+  return <Status tone={SOW[status]} label={status} />;
 }
 
-export function WorkStatusBadge({ status, showIcon }: { status: WorkStatus; showIcon?: boolean }) {
-  return <StatusBadgeBase meta={WORK[status]} label={status} showIcon={showIcon} />;
+export function WorkStatusBadge({ status }: { status: WorkStatus }) {
+  return <Status tone={WORK_TONE[status]} label={status} />;
 }
 
-export function LogTypeBadge({ type, showIcon }: { type: LogEntryType; showIcon?: boolean }) {
-  return <StatusBadgeBase meta={LOG[type]} label={type} showIcon={showIcon} />;
-}
-
-/** Icon-only accessor for the log types (used in filter chips, etc). */
-export function logTypeIcon(type: LogEntryType): LucideIcon {
-  return LOG[type].icon;
+export function LogTypeBadge({ type }: { type: LogEntryType }) {
+  return <Status tone={LOG[type]} label={type} />;
 }

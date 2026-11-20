@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -72,10 +71,7 @@ export function NewProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FolderPlus className="h-5 w-5 text-primary" />
-            New project
-          </DialogTitle>
+          <DialogTitle>New project</DialogTitle>
           <DialogDescription>
             Start a project directly. It's recorded as an approved SoW, so it also shows
             up under that client's SoWs.

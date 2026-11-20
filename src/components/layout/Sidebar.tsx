@@ -39,7 +39,7 @@ function Brand() {
         <Compass />
       </span>
       <div className="leading-tight">
-        <div className="text-base font-semibold tracking-tight">Helm</div>
+        <div className="text-base font-semibold">Helm</div>
         <div className="text-[11px] text-muted-foreground">SoW &amp; Project Tracker</div>
       </div>
     </div>
@@ -80,13 +80,24 @@ function NavItems({
     setLineBox(active ? { top: active.offsetTop, height: active.offsetHeight } : null);
   }, [pathname]);
 
+  // Place the line instantly on first paint and only slide it between pages, so
+  // a page load doesn't open with the line gliding down from Dashboard.
+  const [slide, setSlide] = useState(false);
+  useEffect(() => {
+    if (lineBox) setSlide(true);
+  }, [lineBox]);
+
   return (
     <nav ref={navRef} className="relative flex flex-1 flex-col gap-1 px-3">
       <span
         aria-hidden
-        className="pointer-events-none absolute left-1 w-1 rounded-full bg-primary transition-all duration-300 ease-out"
+        className={cn(
+          "pointer-events-none absolute left-1 top-0 w-1 rounded-full bg-primary",
+          slide && "transition-[transform,opacity] duration-300 ease-out"
+        )}
         style={{
-          top: (lineBox?.top ?? 0) + 6,
+          // Slide with transform, not `top`: compositor-only, no per-frame layout.
+          transform: `translateY(${(lineBox?.top ?? 0) + 6}px)`,
           height: Math.max(0, (lineBox?.height ?? 0) - 12),
           opacity: lineBox ? 1 : 0,
         }}
@@ -103,7 +114,9 @@ function NavItems({
             className={({ isActive }) =>
               cn(
                 "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium",
-                stagger ? "transition-all duration-300" : "transition-colors",
+                stagger
+                  ? "transition-[transform,opacity,color,background-color] duration-300"
+                  : "transition-colors",
                 stagger && !visible && "-translate-x-3 opacity-0",
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
